@@ -1,0 +1,16 @@
+def is_odd(x: int) -> bool:
+    if x == 0:
+        return False
+    else:
+        return is_even(x - 1)
+
+
+def is_even(x: int) -> bool:
+    y: int = 1
+    if x == 0:
+        return True
+    else:
+        return is_odd(x - 1)
+
+print(is_odd(10))
+print(is_even(10))

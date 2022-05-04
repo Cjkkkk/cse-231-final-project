@@ -1,0 +1,17 @@
+a = 1
+b = 2
+def f1(b: int) -> int:
+    return b * 1
+
+while a < 10:
+    a = a + 1
+c = a + f1(10)
+if c > 30:
+    c = 11
+elif c > 20:
+    c = 21
+elif c > 10:
+    b = 21
+else:
+    b = 22
+b

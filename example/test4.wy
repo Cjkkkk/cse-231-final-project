@@ -1,0 +1,11 @@
+class A(object):
+    a: int = 1
+    b: bool = True
+    def new(self: A, a: int, b: bool):
+        self.a = a
+        self.b = b
+def f(a: int, b:int):
+    return
+a:A = None
+a.new(4, True)
+a.a

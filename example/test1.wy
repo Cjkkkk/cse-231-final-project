@@ -1,0 +1,47 @@
+// 2
+def f(x: int) -> int:
+    if x:
+        return x * 2
+    else:
+        return x + 1
+
+f(3)
+
+// 3
+
+x: int = 1
+def f(x: int) -> int:
+    return x * 2
+
+while x < 100:
+    x = f(x)
+
+x
+
+
+// 4
+def f(x: int) -> int:
+    while x < 100:
+        x = x + 1
+        if x * x > 100:
+            return x
+    return -1
+    
+f(4)
+
+// 7
+def is_odd(x: int) -> bool:
+    if x == 0:
+        return False
+    else:
+        return is_even(x - 1)
+
+
+def is_even(x: int) -> bool:
+    if x == 0:
+        return True
+    else:
+        return is_odd(x - 1)
+
+print(is_odd(10))
+print(is_even(10))

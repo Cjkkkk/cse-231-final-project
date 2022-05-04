@@ -1,0 +1,20 @@
+n:int = 10
+r:int = 0
+c:bool = False
+
+
+def Fibonacci(n: int) -> int:
+    if n <= 2:
+        return 1
+    else:
+        return Fibonacci(n-1) + Fibonacci(n-2)
+ 
+
+r = Fibonacci(10)
+c = r > 100
+if c:
+    print(1)
+else:
+    print(0)
+
+r
