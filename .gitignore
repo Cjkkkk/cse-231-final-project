@@ -2,5 +2,19 @@ node_modules
 build
 cli
 *.sw*
-dist/
-.vscode/*
+
+# add
+.vscode
+dist
+printtree*
+debug*
+compiler.js
+ast.js
+parser.js
+test.ts
+test.js
+error.js
+node-cli*
+*.log
+test*
+!tests
