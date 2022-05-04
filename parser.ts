@@ -1,6 +1,6 @@
 import { assert } from "chai";
-import { parser } from "lezer-python";
-import { TreeCursor } from "lezer-tree";
+import { parser } from "@lezer/python";
+import { TreeCursor } from "@lezer/common";
 import { BinOp, Expr, Stmt, UniOp, Type, TypeDef, CondBody, FuncStmt, VarStmt, isClass, NameExpr} from "./ast";
 
 
