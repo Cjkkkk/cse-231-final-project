@@ -14,8 +14,10 @@ export function typeCheck(source: string) : Type {
         return "none"
     }
     const lastType = (lastStmt as ExprStmt<any>).expr.a;
-    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") return lastType.tag;
-    else if (lastType.tag === "class") return CLASS(lastType.name);
+    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") 
+        return lastType.tag;
+    else if (lastType.tag === "class") 
+        return CLASS(lastType.name);
     else {
         return "none";
     }
@@ -43,10 +45,16 @@ type Type =
   | "bool"
   | "none"
   | { tag: "object", class: string }
+  | { tag: "list", type: Type }
+  | { tag: "string" }
 
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";
 export const NONE : Type = "none";
 export function CLASS(name : string) : Type { 
     return { tag: "object", class: name }
+};
+
+export function LIST( typ: Type ): Type {
+    return { tag: "list", type: typ }
 };
