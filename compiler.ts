@@ -146,7 +146,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 `i32.load`, // get v_table pointer
                 `i32.const ${mc.order.indexOf(expr.name)}`, // offset
                 `i32.add`, // get index into the table
-                `call_indirect (type $${className}$${expr.name})`
+                `call_indirect (type ${mc.mapping.get(expr.name)})`
             ];
         }
 
