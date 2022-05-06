@@ -509,9 +509,6 @@ function buildFieldContext(root: Node): FieldContexMap {
             env.set(f.var.name, currentOffset);
             currentOffset += 4;
         });
-        // TODO: quick access to the size of the object fields 
-        // This is temporary
-        env.set(node.cls.name, currentOffset);
         fm.set(node.cls.name, env);
     }
     return fm;
