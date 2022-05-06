@@ -12,7 +12,7 @@ export type Type =
     | {tag: "none"} 
     | {tag: "class", name: string} 
     | {tag: "callable", params: Type[], ret: Type}
-    | {tag: "list", type?: Type}
+    | {tag: "list", type: Type}
     | {tag: "tuple", members: Type[]}
 
 export function typeStr(t: Type): string {
@@ -35,7 +35,8 @@ export function typeStr(t: Type): string {
 }
 
 export function isTypeEqual(lhs: Type, rhs: Type): boolean {
-    if (lhs.tag !== rhs.tag) return false;
+    if (rhs === null) return lhs === null;
+    else if (lhs.tag !== rhs.tag) return false;
     else if (lhs.tag === "int" || lhs.tag === "bool" || lhs.tag === "none") return true;
     else if (lhs.tag === "class" && rhs.tag === "class") return lhs.name === rhs.name;
     else if (lhs.tag === "callable" && rhs.tag === "callable") {
@@ -45,29 +46,41 @@ export function isTypeEqual(lhs: Type, rhs: Type): boolean {
         })
         return isTypeEqual(lhs.ret, rhs.ret);
     } 
-    else if (lhs.tag === "list") {
-        if (rhs.tag === "list") {
-            return !(rhs.type) || isAssignable(lhs.type, rhs.type);
-        } 
-        return rhs.tag === "none";
-    }
-     else {
+    else if (lhs.tag === "list" && rhs.tag === "list") {
+        return isTypeEqual(lhs.type, rhs.type)
+    } else {
         throw new TypeError("TYPE ERROR: Do not support this type")
     }
 }
 
 export function isAssignable(lhs: Type, rhs: Type): boolean {
-    return isTypeEqual(lhs, rhs) || (isObject(lhs) && isTypeEqual(rhs, {tag: "none"}))
+    return isTypeEqual(lhs, rhs) || 
+    isSubType(lhs, rhs);
 }
 
-export function isObject(a: Type) {
-    return (a.tag === "class") || (a.tag === "list")
+export function isSubType(lhs: Type, rhs: Type) {
+    if (isClass(lhs)) {
+        return isTypeEqual(rhs, { tag: "none" });
+    } else if (lhs.tag === "list") {
+        if (rhs.tag === "list")
+            return isEmptyList(rhs) || isAssignable(lhs.type, rhs.type);
+        else
+            return isTypeEqual(rhs, { tag: "none" });
+    }
+    return false;
 }
 
 export function isClass(a: Type) {
     return a.tag === "class"
 }
 
+export function isObject(a: Type) {
+    return a.tag === "class" || a.tag === "list"
+}
+
+export function isEmptyList(a: Type) {
+    return a.tag === "list" && a.type === null
+}
 
 export type TypeDef = {name: string, type: Type}
 export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}

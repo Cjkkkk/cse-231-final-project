@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isObject, isClass} from './ast';
+import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass} from './ast';
 import {parse} from './parser';
 import {tcProgram } from './tc';
 

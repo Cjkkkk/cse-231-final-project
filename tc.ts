@@ -1,6 +1,6 @@
 
 import { assert } from "chai";
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass } from "./ast";
 import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type}
@@ -285,13 +285,26 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             const newEles = e.eles.map(ele => tcExpr(ele, envList));
             var typ: Type;
             if (newEles.length === 0) {
-                typ = { tag: "list" }
+                typ = { tag: "list", type: null };
             } else {
                 // TODO: define type for list eles
-                if (!newEles.every(ele => isAssignable(ele.a, newEles[0].a))) {
-                    throw new TypeError("Types in the list not uniform")
-                }
-                typ = { tag: "list", type: newEles[0].a }
+                let generalType = newEles[0].a;
+                newEles.forEach(ele => {
+                    let curType = ele.a;
+                    if (!isTypeEqual(curType, generalType)) {
+                        if (isSubClass(generalType, curType, envList)) {
+                            generalType = curType;
+                        } else if (generalType.tag === "none" && isClass(curType)) {
+                            generalType = curType;
+                        } else if (!(curType.tag === "none" && isClass(generalType))) {
+                            throw new TypeError("Types in the list not uniform")
+                        }
+                    }
+                })
+                // if (!newEles.every(ele => isAssignable(ele.a, newEles[0].a) || isAssignable(newEles[0].a, ele.a))) {
+                //     throw new TypeError("Types in the list not uniform")
+                // }
+                typ = { tag: "list", type: generalType }
             }
             
             return { ...e, a: typ, eles: newEles }
@@ -419,9 +432,9 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
                 if (!found) {
                     throw new ReferenceError(`Reference error: ${lhs.name} is not defined`);
                 }
-            }
+            } 
             if( !isAssignable(lhs.a, rhs.a) && !isSubClass(rhs.a, lhs.a, envList)) {
-                throw new TypeError(`TYPE ERROR: Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
+                throw new TypeError(`Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
             }
             
             return { ...s, name: lhs, value: rhs };
