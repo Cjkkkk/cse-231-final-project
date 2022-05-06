@@ -7,6 +7,10 @@ describe("PA4 tests for list", () => {
     a: [int] = None
     a = [0]
     a`, LIST(NUM));
+    assertTC("empty-list", `
+    a: [int] = None
+    a = []
+    a`, LIST(NUM));
     // 2.1
     assertTC("list-ele-type", `
     a: [int] = None
@@ -55,12 +59,12 @@ describe("PA4 tests for list", () => {
     a: [int] = None
     a = []
     print(len(a))`, [`0`]);
-    // 4.3
-    assertTCFail("list-len-none", `
+    4.3
+    assertFail("list-len-none", `
     a: [int] = None
     print(len(a))`);
     // 4.4
-    assertFail("len-bad-arg", `
+    assertTCFail("len-bad-arg", `
     t: bool = True
     a: int = 0
     a = len(t)`);
@@ -78,14 +82,14 @@ describe("PA4 tests for list", () => {
         print(True)
     else:
         print(False))`, [`True`]);
-    // 6
+    6
     assertTC("list-ret-type", `
     def gen() -> [int]:
         return [1,2,3]
     a: [int] = None
     a = gen()
     a`, LIST(NUM));
-    // 7
+    7
     assertTC("nested-list", `
     a: [[int]] = None
     a = [[1,2,3], [4,5,6]]
@@ -104,6 +108,14 @@ describe("PA4 tests for list", () => {
         x:int = 567
     a: [C] = None
     a = [None, D(), C()]`);
+    assertPrint("mix-inheritance-obj", `
+    class C(object):
+    x:int = 345
+    class D(C):
+        y:int = 567
+    a: [C] = None
+    a = [None, D(), C()]
+    print(a[1].x)`, [`345`]);
     // 9
     assertFail("list-of-none", `
     class C(object):
@@ -150,5 +162,28 @@ describe("PA4 tests for list", () => {
     b: [int] = None
     a = [1,2,3]
     print(b is a)`, [`False`]);
+    // 11
+    // assertPrint("list-concat", `
+    // a: [int] = None
+    // b: [int] = None
+    // a = []
+    // b = [4569]
+    // a = a + b
+    // print(a[0])`, [`4569`]);
+    // assertTCFail("list-concat-diff-type", `
+    // a: [int] = None
+    // b: [bool] = None
+    // a = []
+    // b = [True, False]
+    // a = a + b`);
+    // assertFail("list-concat-none-1", `
+    // a: [int] = None
+    // b: [int] = None
+    // a = a + b`)
+    // assertFail("list-concat-none-2", `
+    // a: [int] = None
+    // b: [int] = None
+    // a = [0,1,2]
+    // a = a + b`)
 });
 

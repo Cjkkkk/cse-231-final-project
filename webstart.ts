@@ -8,20 +8,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     var importObject = {
         imports: {
-        print_num: (arg : any) => {
-            console.log("Logging from WASM: ", arg);
-            display(String(arg));
-            return arg;
+            print_num: (arg : any) => {
+                console.log("Logging from WASM: ", arg);
+                display(String(arg));
+                return arg;
+            },
+            print_bool: (arg : any) => {
+                if(arg === 0) { display("False"); }
+                else { display("True"); }
+                return arg;
+            },
+            print_none: (arg: any) => {
+                display("None");
+                return arg;
+            },
         },
-        print_bool: (arg : any) => {
-            if(arg === 0) { display("False"); }
-            else { display("True"); }
-            return arg;
-        },
-        print_none: (arg: any) => {
-            display("None");
-            return arg;
-        }
+        check: {
+            check_init: (arg: any) => {
+                if (arg === 0) {
+                    throw new Error("RUNTIME ERROR: object not intialized");
+                }
+                return arg;
+            },
+            check_index: (length: any, arg: any) => {
+                if (arg >= length || arg < 0) {
+                    throw new Error("RUNTIME ERROR: Index out of bounds");
+                }
+                return arg;
+            },
         },
     };
     const runButton = document.getElementById("run");

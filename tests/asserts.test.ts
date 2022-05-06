@@ -11,9 +11,9 @@ beforeEach(function () {
 });
 
 // suppress console logging so output of mocha is clear
-before(function () {
-  console.log = function () {};
-});
+// before(function () {
+//   console.log = function () {};
+// });
 
 // Assert the output of printing matches the expected output
 export function assertPrint(name: string, source: string, expected: Array<string>) {

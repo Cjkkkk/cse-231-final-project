@@ -1,6 +1,7 @@
 
 import { assert } from "chai";
 import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr } from "./ast";
+import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type}
 type FuncSymbol = {tag: "func", type: [Type[], Type]}
@@ -145,6 +146,16 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 const res : Expr<Type> = { ...e, a: {tag: "none"}, args: newArgs } ;
                 return res;
             }
+            else if (e.name === "len") {
+                if (e.args.length !== 1) { throw new Error("len expects a single argument"); }
+                const newArgs = tcExpr(e.args[0], envList);
+                if (newArgs.a.tag !== "list") {
+                    // TODO: Chocopy do not type check this argument?
+                    throw new TypeError(`Cannot call len on type ${typeStr(newArgs.a)}`);
+                }
+                const res: Expr<Type> = { ...e, a: { tag: "int" }, args: [newArgs] };
+                return res;
+            }
 
             let [found, t] = lookUpSymbol(envList, e.name, false);
             if(!found) {
@@ -269,6 +280,34 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 return argtyp;
             });
             return { ...e, a: ret, obj: newObj, args: newArgs };
+        }
+        case "array": {
+            const newEles = e.eles.map(ele => tcExpr(ele, envList));
+            var typ: Type;
+            if (newEles.length === 0) {
+                typ = { tag: "list" }
+            } else {
+                // TODO: define type for list eles
+                if (!newEles.every(ele => isAssignable(ele.a, newEles[0].a))) {
+                    throw new TypeError("Types in the list not uniform")
+                }
+                typ = { tag: "list", type: newEles[0].a }
+            }
+            
+            return { ...e, a: typ, eles: newEles }
+        } 
+        case "index": {
+            const newObj = tcExpr(e.obj, envList);
+            if (newObj.a.tag !== "list") {
+                throw new TypeError(`Cannot index into type ${typeStr(newObj.a)}`)
+            }
+            const newIdx = tcExpr(e.idx, envList);
+            if (newIdx.a.tag !== "int") {
+                throw new TypeError(`Index is of non-integer type ${typeStr(newIdx.a)}`)
+            }
+            // for the case: l = [] \ l[0]
+            // throw error for index out of bound in runtime
+            return { ...e, obj: newObj, idx: newIdx, a: newObj.a.type }
         }
     }
 }

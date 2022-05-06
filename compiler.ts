@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr} from './ast';
+import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isObject, isClass} from './ast';
 import {parse} from './parser';
 import {tcProgram } from './tc';
 
@@ -72,6 +72,9 @@ export function unaryOpStmts(op : UniOp) {
     }
 }
 
+
+
+
 export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap, mcm: MethodContextMap) : Array<string> {
     switch(expr.tag) {
         case "literal": {
@@ -117,6 +120,13 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                     case "int": toCall = "print_num"; break;
                     case "none": toCall = "print_none"; break;
                 }
+            } else if (expr.name === "len") {
+                valStmts.push(
+                    // `(call $check_init)`,
+                    `(i32.load)`
+                );
+                return valStmts;
+
             } else if(fcm.has(expr.name)) {
                 // is class init call
                 valStmts.push(`i32.const -2147483648`);
@@ -151,13 +161,61 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         }
 
         case "getfield": {
-            const ObjStmt = codeGenExpr(expr.obj, locals, fcm, mcm);
+            var ObjStmt = codeGenExpr(expr.obj, locals, fcm, mcm);
             return [
                 ...ObjStmt,
                 `i32.const ${fcm.get((expr.obj.a as {tag: "class", name: string}).name).get(expr.name)}`,
                 `i32.add`,
                 `i32.load`
             ]
+        }
+
+        case "array": {
+            const eleStmt = expr.eles.slice().reverse().map((ele, i) => codeGenExpr(ele, locals, fcm, mcm)).flat();
+            // TODO: now the length of the list is on heap
+            eleStmt.push(`(global.get $heap)`,
+                `(i32.const ${expr.eles.length})`,
+                `(i32.store)`);
+            expr.eles.slice().reverse().forEach((ele, i) => {
+                eleStmt.push(
+                    `(local.set $scratch)`,
+                    `(global.get $heap)`,
+                    `(i32.add (i32.mul (i32.const ${i+1}) (i32.const 4)))`,
+                    `(local.get $scratch)`,
+                    `(i32.store)`
+                )
+            })
+            eleStmt.push(
+                `(global.get $heap) ;; addr of the list`,
+                `(global.get $heap)`,
+                `(i32.const ${expr.eles.length})`,
+                `(i32.add (i32.const 1))`,
+                `(i32.mul (i32.const 4))`,
+                `(i32.add)`,
+                `(global.set $heap)`,
+            )
+            return eleStmt;
+        }
+        case "index": {
+            var objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
+            var idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
+            return [
+                ...objStmts,
+                // TODO: below is an ugly way to use the address of obj more than once
+                `(local.set $scratch)`,
+                `(local.get $scratch)`,
+                // TODO: check init , now memory error
+                // `(call $check_init)`,
+                `(i32.add (i32.const 4))`,
+
+                `(local.get $scratch)`,
+                `(i32.load) ;; load the length of the list`,
+                ...idxStmts,
+                `(call $check_index)`,
+                `(i32.mul (i32.const 4))`,
+                `(i32.add)`,
+                `(i32.load)`
+            ];
         }
     }
 }
@@ -447,12 +505,13 @@ function buildFieldContext(root: Node): FieldContexMap {
             env.set(f.var.name, currentOffset);
             currentOffset += 4;
         });
-
+        // TODO: quick access to the size of the object fields 
+        // This is temporary
+        env.set(node.cls.name, currentOffset);
         fm.set(node.cls.name, env);
     }
     return fm;
 }
-
 
 export function compile(source : string) : string {
     let ast = parse(source);
@@ -490,8 +549,10 @@ export function compile(source : string) : string {
     (func $print_num (import "imports" "print_num") (param i32) (result i32))
     (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
     (func $print_none (import "imports" "print_none") (param i32) (result i32))
+    (func $check_init(import "check" "check_init") (param i32) (result i32))
+    (func $check_index(import "check" "check_index") (param i32) (param i32) (result i32))
     (memory $0 1)
-    (global $heap (mut i32) (i32.const 0))
+    (global $heap (mut i32) (i32.const 4))
 ${varDeclCode}
 ${tableCode}
 ${classCode}

@@ -7,12 +7,12 @@ export const BOOL = {tag: "bool"}
 export const NONE = {tag: "none"} 
 
 export type Type = 
-    { tag: "int"} 
+    { tag: "int" } 
     | {tag: "bool"} 
     | {tag: "none"} 
     | {tag: "class", name: string} 
     | {tag: "callable", params: Type[], ret: Type}
-    | {tag: "list", type: Type}
+    | {tag: "list", type?: Type}
     | {tag: "tuple", members: Type[]}
 
 export function typeStr(t: Type): string {
@@ -44,18 +44,30 @@ export function isTypeEqual(lhs: Type, rhs: Type): boolean {
             if (!isTypeEqual(t, rhs.params[i])) return false;
         })
         return isTypeEqual(lhs.ret, rhs.ret);
-    } else {
+    } 
+    else if (lhs.tag === "list") {
+        if (rhs.tag === "list") {
+            return !(rhs.type) || isAssignable(lhs.type, rhs.type);
+        } 
+        return rhs.tag === "none";
+    }
+     else {
         throw new TypeError("TYPE ERROR: Do not support this type")
     }
 }
 
 export function isAssignable(lhs: Type, rhs: Type): boolean {
-    return isTypeEqual(lhs, rhs) || (isClass(lhs) && isTypeEqual(rhs, {tag: "none"}))
+    return isTypeEqual(lhs, rhs) || (isObject(lhs) && isTypeEqual(rhs, {tag: "none"}))
+}
+
+export function isObject(a: Type) {
+    return (a.tag === "class") || (a.tag === "list")
 }
 
 export function isClass(a: Type) {
     return a.tag === "class"
 }
+
 
 export type TypeDef = {name: string, type: Type}
 export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}
@@ -72,12 +84,14 @@ export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
+export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type NameExpr<A> = { a?: A, tag: "name", name: string}
 export type UnaryExpr<A> = { a?: A, tag: "unary", op: UniOp, expr: Expr<A>}
 export type BinaryExpr<A> = { a?: A, tag: "binary", op: BinOp, lhs: Expr<A>, rhs: Expr<A>}
 export type CallExpr<A> = { a?: A, tag: "call", name: string, args: Expr<A>[]}
 export type GetFieldExpr<A> = { a?: A, tag: "getfield", obj: Expr<A>, name: string}
 export type MethodExpr<A> = { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
+export type IndexExpr<A> = { a?: A, tag: "index", obj: Expr<A>, idx: Expr<A> }
 
 export type Stmt<A> =
     | FuncStmt<A>
@@ -98,3 +112,5 @@ export type Expr<A> =
     | CallExpr<A>
     | GetFieldExpr<A>
     | MethodExpr<A>
+    | ArrayExpr<A>
+    | IndexExpr<A>
