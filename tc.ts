@@ -156,7 +156,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 if (e.args.length !== 1) { throw new Error("len expects a single argument"); }
                 const newArgs = tcExpr(e.args[0], envList);
                 if (newArgs.a.tag !== "list") {
-                    // TODO: Chocopy do not type check this argument?
+                    // DSC TODO: Chocopy do not type check this argument?
                     throw new TypeError(`Cannot call len on type ${typeStr(newArgs.a)}`);
                 }
                 const res: Expr<Type> = { ...e, a: { tag: "int" }, args: [newArgs] };
@@ -293,7 +293,6 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             if (newEles.length === 0) {
                 typ = { tag: "list", type: null };
             } else {
-                // TODO: define type for list eles
                 let generalType = newEles[0].a;
                 newEles.forEach(ele => {
                     let curType = ele.a;

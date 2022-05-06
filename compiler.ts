@@ -108,7 +108,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             const lhsExprs = codeGenExpr(expr.lhs, locals, fcm, mcm);
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
             const opstmts = binOpStmts(expr.op);
-            // TODO: add list concat
+            // DSC TODO: add list concat
             // if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
             //     const newLen = expr.lhs.
             // }
@@ -176,7 +176,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
 
         case "array": {
             const eleStmt = expr.eles.slice().reverse().map((ele, i) => codeGenExpr(ele, locals, fcm, mcm)).flat();
-            // TODO: now the length of the list is on heap
+            // DSC TODO: now the length of the list is on heap
             eleStmt.push(`(global.get $heap)`,
                 `(i32.const ${expr.eles.length})`,
                 `(i32.store)`);
@@ -205,10 +205,10 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             var idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
             return [
                 ...objStmts,
-                // TODO: below is an ugly way to use the address of obj more than once
+                // DSC TODO: below is an ugly way to use the address of obj more than once
                 `(local.set $scratch)`,
                 `(local.get $scratch)`,
-                // TODO: check init , now memory error
+                // DSC TODO: check init , now memory error
                 // `(call $check_init)`,
                 `(i32.add (i32.const 4))`,
 
