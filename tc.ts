@@ -84,6 +84,12 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             const rhs = tcExpr(e.rhs, envList);
             switch(e.op) {
                 case BinOp.Plus: 
+                    if (lhs.a.tag === "list" || rhs.a.tag === "list") {
+                        if (!isTypeEqual(lhs.a, rhs.a)) {
+                            throw new TypeError(`Try to concat two lists on type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`);
+                        }
+                        return { ...e, a: lhs.a, lhs, rhs };
+                    }
                 case BinOp.Minus:
                 case BinOp.Mul:
                 case BinOp.Div: 

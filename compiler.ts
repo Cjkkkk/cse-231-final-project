@@ -108,6 +108,10 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             const lhsExprs = codeGenExpr(expr.lhs, locals, fcm, mcm);
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
             const opstmts = binOpStmts(expr.op);
+            // TODO: add list concat
+            // if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
+            //     const newLen = expr.lhs.
+            // }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
         }
         case "call":{

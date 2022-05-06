@@ -108,6 +108,13 @@ describe("PA4 tests for list", () => {
         x:int = 567
     a: [C] = None
     a = [None, D(), C()]`);
+    assertTCFail("mix-obj-type", `
+    class C(object):
+        x:int = 345
+    class D(object):
+        x:int = 567
+    a: [C] = None
+    a = [D(),None, C()]`);
     assertPrint("mix-inheritance-obj", `
     class C(object):
     x:int = 345
