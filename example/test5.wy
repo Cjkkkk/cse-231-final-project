@@ -1,26 +1,9 @@
-class A(object):
-    a: int = 1
-    def f1(self: A) -> int:
-        return 1
-            
-class B(A):
-    def f1(self: B) -> int:
-        return 2
-
-
-class C(B):
-    def f1(self: C) -> int:
-        return 4
-
-def f(a: A) -> int:
-    return a.f1()
-
-def f1() -> A:
-    return B()
-
-c: C = None
-a: A = None
-c = C()
-a = f1()
-print(f(c))
-print(f(a))
+def f() -> int:
+    def g(a: int) -> int:
+        def h(a: int) -> int:
+            return a + 2
+        return h(a) + 1
+    def g1(a: int) -> int:
+        return a + 1
+    return g(4) + g1(5)
+print(f())

@@ -222,6 +222,11 @@ a = f1()
 print(f(c))
 print(f(a))
 `
+
+
+source = `
+print(100 + 20 + 3)
+`
 const t = parser.parse(source);
 console.log(stringifyTree(t.cursor(), source, 0));
 
