@@ -552,12 +552,19 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             return { ...s, value: valTyp };
         }
         case "scope": {
-            const scope = s.global? SearchScope.GLOBAL: SearchScope.NONLOCAL;
+            const scope = s.global ? SearchScope.GLOBAL : SearchScope.NONLOCAL;
             const [found, symbol] = envList.lookUpSymbol(s.name, scope);
             if (!found) {
                 throw new ReferenceError(`not a ${s.global? "global": "nonlocal"} variable: ${s.name}`);
             }
+            if (!s.global) {
+                const [found_glb, symbol] = envList.lookUpSymbol(s.name, SearchScope.GLOBAL);
+                if (found_glb) {
+                    throw new ReferenceError(`not a nonlocal variable: ${s.name}`);
+                }
+            }
             envList.defineNewSymbol(s.name, symbol);
+
             return {...s };
         }
     }

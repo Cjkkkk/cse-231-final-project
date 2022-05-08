@@ -8,7 +8,9 @@ export const NONE = {tag: "none"}
 
 export const keywords = new Set<string>([
     "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
-    "global", "nonlocal", "string", "list", "import", "try", "except"
+    "global", "nonlocal", "string", "list", "import", "try", "except", "False", "True", "and", 
+    "as", "assert", "async", "await", "break", "continue", "del", "finally", "from", "in",
+     "is", "lambda", "not", "or", "pass", "raise", "with", "yield"
 ]);
 
 export type Type = 
