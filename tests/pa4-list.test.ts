@@ -117,7 +117,7 @@ describe("PA4 tests for list", () => {
     a = [D(),None, C()]`);
     assertPrint("mix-inheritance-obj", `
     class C(object):
-    x:int = 345
+        x:int = 345
     class D(C):
         y:int = 567
     a: [C] = None

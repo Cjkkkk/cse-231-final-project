@@ -73,8 +73,6 @@ export function unaryOpStmts(op : UniOp) {
 }
 
 
-
-
 export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap, mcm: MethodContextMap) : Array<string> {
     switch(expr.tag) {
         case "literal": {
