@@ -13,7 +13,9 @@ type SymbolTableList = Env<UnionSymbol>
 enum SearchScope {
     LOCAL = -1, 
     GLOBAL = 0,
-    NONLOCAL = 1
+    NONLOCAL = 1,
+    LOCAL_AND_GLOBAL = 2,
+    ALL = 3
 } 
 
 
@@ -74,12 +76,19 @@ class Env<T> {
             start = 0;
         else if (scope === -1)
             end = this.decls.length - 1;
-        else if (scope === 1) {
+        else if (scope === 1) { // NONLOCAL
             if (this.decls.length < 3) {
                 return [false, undefined];
             }
             start = 1;
             end = this.decls.length - 2;
+        } 
+        else if (scope === 2) {
+            if (this.decls[0].has(id))
+                return [true, this.decls[0].get(id)];
+            if (this.decls[start].has(id))
+                return [true, this.decls[start].get(id)];
+            return [false, undefined];
         }
         for (let i = start; i >= end; i--) {
             if (this.decls[i].has(id))
@@ -164,7 +173,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             }
         }
         case "name": {
-            let [found, t] = envList.lookUpSymbol(e.name);
+            let [found, t] = envList.lookUpSymbol(e.name, 3);
             if (!found) {
                 throw new ReferenceError(`Reference error: ${e.name} is not defined`)
             } 
@@ -191,7 +200,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                 return res;
             }
 
-            let [found, t] = envList.lookUpSymbol(e.name, 0);
+            let [found, t] = envList.lookUpSymbol(e.name, 2);
             if(!found) {
                 throw new ReferenceError(`function ${e.name} is not defined`);
             }
