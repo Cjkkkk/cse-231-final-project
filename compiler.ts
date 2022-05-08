@@ -105,11 +105,11 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         case "binary": {
             const lhsExprs = codeGenExpr(expr.lhs, locals, fcm, mcm);
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
-            const opstmts = binOpStmts(expr.op);
+            var opstmts = binOpStmts(expr.op);
             // DSC TODO: add list concat
-            // if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
-            //     const newLen = expr.lhs.
-            // }
+            if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
+                opstmts = [`call $concat_list`];
+            }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
         }
         case "call":{
@@ -512,6 +512,59 @@ function buildFieldContext(root: Node): FieldContexMap {
     return fm;
 }
 
+export function builtinGen(): string[] {
+    // concat_list
+    const copy_list = [
+        `(func $copy_list (param $src i32) (param $addr i32)`,
+        `(local $i i32)`,
+        `(local $len i32)`,
+        `(local.get $src)`,
+        `(i32.load)`,
+        `(local.set $len)`,
+        `(local.set $i (i32.const 0))`,
+        ...`(block
+            (loop
+                (br_if 1 (i32.eq (local.get $i) (local.get $len)))
+                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (local.get $addr))
+                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (i32.const 4))
+                (i32.add (local.get $src))
+                (i32.load)
+                (i32.store)
+                (local.set $i (i32.add (local.get $i) (i32.const 1)))
+                (br 0)
+            )
+        )`.split("\n"),
+        `)`
+    ];
+    const concat_list = [
+        `(func $concat_list (param i32) (param i32) (result i32)`,
+        `(global.get $heap)`,
+        `(i32.load (local.get 0))`,
+        `(i32.load (local.get 1))`,
+        `(i32.add)`,
+        `(i32.store) ;; store new length`,
+        `(local.get 0)`,
+        `(i32.add (global.get $heap) (i32.const 4))`,
+        `(call $copy_list)`,
+        `(local.get 1)`,
+        `(i32.load (local.get 0))`,
+        `(i32.mul (i32.const 4))`,
+        `(i32.add (i32.const 4))`,
+        `(i32.add (global.get $heap))`,
+        `(call $copy_list)`,
+        `(global.get $heap) ;; return addr`,
+        `(i32.load (global.get $heap))`,
+        `(i32.mul (i32.const 4))`,
+        `(i32.add (i32.const 4))`,
+        `(global.set $heap)`,
+        `)`
+    ]
+    return [...copy_list, ...concat_list];
+}
+
+
 export function compile(source : string) : string {
     let ast = parse(source);
     ast = tcProgram(ast);
@@ -525,6 +578,9 @@ export function compile(source : string) : string {
 
     const mcm = buildMethodContext(root);
     const fcm = buildFieldContext(root);
+
+
+    const builtinCode = addIndent(builtinGen(), 1).join("\n");
 
     const tableCode = addIndent(codeGenTable(root, mcm), 1).join("\n");
     const classCode = classes.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
@@ -552,6 +608,7 @@ export function compile(source : string) : string {
     (func $check_index(import "check" "check_index") (param i32) (param i32) (result i32))
     (memory $0 1)
     (global $heap (mut i32) (i32.const 4))
+${builtinCode}
 ${varDeclCode}
 ${tableCode}
 ${classCode}

@@ -170,27 +170,42 @@ describe("PA4 tests for list", () => {
     a = [1,2,3]
     print(b is a)`, [`False`]);
     // 11
-    // assertPrint("list-concat", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = []
-    // b = [4569]
-    // a = a + b
-    // print(a[0])`, [`4569`]);
-    // assertTCFail("list-concat-diff-type", `
-    // a: [int] = None
-    // b: [bool] = None
-    // a = []
-    // b = [True, False]
-    // a = a + b`);
-    // assertFail("list-concat-none-1", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = a + b`)
-    // assertFail("list-concat-none-2", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = [0,1,2]
-    // a = a + b`)
+    assertPrint("list-concat", `
+    a: [int] = None
+    b: [int] = None
+    a = []
+    b = [4569]
+    a = a + b
+    print(a[0])`, [`4569`]);
+    assertPrint("list-concat-2", `
+    a: [int] = None
+    b: [int] = None
+    c: [int] = None
+    a = [3,4,5]
+    b = [1,2,3]
+    c = a + b
+    print(c[4])`, [`2`]);
+    assertPrint("list-concat-empty", `
+    a: [int] = None
+    b: [int] = None
+    a = []
+    b = []
+    a = a + b
+    print(len(a))`, [`0`]);
+    assertTCFail("list-concat-diff-type", `
+    a: [int] = None
+    b: [bool] = None
+    a = []
+    b = [True, False]
+    a = a + b`);
+    assertFail("list-concat-none-1", `
+    a: [int] = None
+    b: [int] = None
+    a = a + b`)
+    assertFail("list-concat-none-2", `
+    a: [int] = None
+    b: [int] = None
+    a = [0,1,2]
+    a = a + b`)
 });
 
