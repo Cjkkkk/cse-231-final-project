@@ -408,18 +408,16 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
         case "class": {
             // TODO: check if redefine class or method or field!
             // TODO: add super class fields into this
-            const [found, superClassSymbol] = envList.lookUpSymbol(s.super, 0);
-            if (!found || superClassSymbol.tag !== "class") {
-                throw new TypeError(`Class ${s.super} is not defined`)
-            }
-
             let className = s.super;
-            let classData = superClassSymbol.type;
             // track all the super class
             while (className !== "object") {
+                const [found, superClassSymbol] = envList.lookUpSymbol(className, 0);
+                if (!found || superClassSymbol.tag !== "class") {
+                    throw new TypeError(`Class ${className} is not defined`)
+                }
+                let classData = superClassSymbol.type;
                 if (!s.fields.some((f)=>classData.fields.has(f.var.name))) {
                     className = classData.super;
-                    classData = (envList.lookUpSymbol(className, 0)[1] as ClassSymbol).type;
                 } else {
                     throw new TypeError(`TYPE ERROR: Redefine field in class ${s.name}`);
                 }

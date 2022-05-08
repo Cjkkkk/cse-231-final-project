@@ -2,7 +2,7 @@ export enum BinOp {Plus = "PLUS", Minus = "MINUS", Mul = "MUL", Div = "DIV", Mod
 export enum UniOp {Not = "NOT", Neg = "NEG"}
 export type Literal = "None" | true | false | number
 
-export const INT = { tag: "int"} 
+export const INT = {tag: "int"} 
 export const BOOL = {tag: "bool"} 
 export const NONE = {tag: "none"} 
 
