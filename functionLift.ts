@@ -1,3 +1,4 @@
+import { write } from 'fs';
 import {Stmt, Expr, Type, FuncStmt} from './ast';
 type Func = {name: string, closure: Var[]};
 type FuncMap = Map<string, Func>;
@@ -39,8 +40,17 @@ function getExprVarName(expr: Expr<any>, names: Set<string>) {
             expr.args.map((v) => getExprVarName(v, names));
             break;
         } 
+        case "array": {
+            expr.eles.map(e => getExprVarName(e, names));
+            break;
+        }
+        case "index": {
+            getExprVarName(expr.obj, names);
+            getExprVarName(expr.idx, names);
+            break;
+        }
         default: {
-            throw new Error(`Unsupported expr type:`);
+            throw new Error(`Unsupported expr type: `);
         }
     }
 }
@@ -79,6 +89,9 @@ function getStmtsVarName(stmts: Stmt<any>[], names: Set<string>) {
                 getExprVarName(stmt.value, names);
                 break;
             } case "var": {
+                break;
+            } case "scope": {
+                // DSC TODO 
                 break;
             } default: {
                 throw new Error(`Unsupported stmt type:`);
@@ -128,6 +141,15 @@ function rewriteExpr(expr: Expr<any>, funcList: FuncMapList, varList: VarMapList
             expr.args = expr.args.map((v) => rewriteExpr(v, funcList, varList));
             break;
         } 
+        case "array": {
+            expr.eles = expr.eles.map(e => rewriteExpr(e, funcList, varList));
+            break;
+        }
+        case "index": {
+            expr.obj = rewriteExpr(expr.obj, funcList, varList);
+            expr.idx = rewriteExpr(expr.idx, funcList, varList);
+            break;
+        }
         default: {
             throw new Error(`Unsupported expr type:`);
         }
@@ -240,6 +262,10 @@ function rewriteStmts(stmts: Stmt<any>[], currentPrefix: string, funcList: FuncM
                 break;
             } case "var": {
                 newStmts.push(s);
+                break;
+            } case "scope": {
+                newStmts.push(s);
+                // DSC TODO
                 break;
             } default: {
                 throw new Error(`Unsupported stmt type:`);

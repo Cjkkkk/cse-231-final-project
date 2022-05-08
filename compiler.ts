@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import { Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass, FuncStmt} from './ast';
+import { Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass, FuncStmt, VarStmt} from './ast';
 import {parse} from './parser';
 import {tcProgram } from './tc';
 import {functionLifting} from "./functionLift"
@@ -434,12 +434,17 @@ function addFieldFromSuperClass(root: Node) {
         const node = NodeList.pop();
         node.subs.forEach((sub) => {
             NodeList.push(sub);
+            // KSB TODO: now is a quick fix to put super fields before sub fields
+            // This should be done in type check maybe?
+            const superFields: VarStmt<Type>[] = [];
             node.cls.fields.forEach((supF)=> {
                 if (sub.cls.fields.some((subF)=>subF.var.name === supF.var.name)) {
                     throw new Error(`Redefine field ${supF.var.name} in sub class ${sub.cls.name}`);
                 }
-                sub.cls.fields.push(supF);
+                superFields.push(supF);
+                // sub.cls.fields.push(supF);
             })
+            sub.cls.fields = superFields.concat(sub.cls.fields);
         })
     }
 }

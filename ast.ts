@@ -103,13 +103,13 @@ export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, m
 export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
-export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type NameExpr<A> = { a?: A, tag: "name", name: string}
 export type UnaryExpr<A> = { a?: A, tag: "unary", op: UniOp, expr: Expr<A>}
 export type BinaryExpr<A> = { a?: A, tag: "binary", op: BinOp, lhs: Expr<A>, rhs: Expr<A>}
 export type CallExpr<A> = { a?: A, tag: "call", name: string, args: Expr<A>[]}
 export type GetFieldExpr<A> = { a?: A, tag: "getfield", obj: Expr<A>, name: string}
 export type MethodExpr<A> = { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
+export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type IndexExpr<A> = { a?: A, tag: "index", obj: Expr<A>, idx: Expr<A> }
 
 export type Stmt<A> =

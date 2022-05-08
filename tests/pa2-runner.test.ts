@@ -291,7 +291,7 @@ print(x)
     it('function test', async () => {
         const source = `
 def f(x:int)->int:
-return x * x
+    return x * x
 a:int = 1
 res:int = 0
 while a <= 10:
