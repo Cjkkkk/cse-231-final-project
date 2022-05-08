@@ -6,6 +6,11 @@ export const INT = { tag: "int"}
 export const BOOL = {tag: "bool"} 
 export const NONE = {tag: "none"} 
 
+export const keywords = new Set<string>([
+    "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
+    "global", "nonlocal", "string", "list", "import", "try", "except"
+]);
+
 export type Type = 
     { tag: "int" } 
     | {tag: "bool"} 
