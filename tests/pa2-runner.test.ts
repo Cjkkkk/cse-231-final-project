@@ -412,7 +412,7 @@ x:int = 2
             `);
             assert(false);
         } catch (error) {
-            expect(error.message).to.equal("Redefine symbol: x");
+            expect(error.message).to.contain("Redefine symbol: x");
         }
 
         try {
@@ -425,7 +425,7 @@ x = f(x)
             `);
             assert(false);
         } catch (error) {
-            expect(error.message).to.equal("Redefine symbol: x");
+            expect(error.message).to.contain("Redefine symbol: x");
         }
     });
 

@@ -522,7 +522,11 @@ export function traverse(c : TreeCursor, s : string) : Array<Stmt<any>> {
             const stmts = [];
             c.firstChild();
             do {
-                stmts.push(traverseStmt(c, s));
+                const stmt = traverseStmt(c, s);
+                if (stmt.tag === "scope") {
+                    throw new ParseError("Could not parse program at " + c.node.from + " " + c.node.to);
+                }
+                stmts.push(stmt);
             } while(c.nextSibling())
             // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at " , c.node);
             return stmts;

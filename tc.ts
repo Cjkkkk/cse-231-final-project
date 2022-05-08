@@ -544,6 +544,15 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             }
             return { ...s, value: valTyp };
         }
+        case "scope": {
+            const scope = s.global? SearchScope.GLOBAL: SearchScope.NONLOCAL;
+            const [found, symbol] = envList.lookUpSymbol(s.name, scope);
+            if (!found) {
+                throw new ReferenceError(`not a ${s.global? "global": "nonlocal"} variable: ${s.name}`);
+            }
+            envList.defineNewSymbol(s.name, symbol);
+            return {...s };
+        }
     }
 }
 
@@ -551,7 +560,7 @@ export function checkDefinition(p : Stmt<any>[]) {
     var LastDeclare = -1;
     var firstStmt = p.length;
     for(var i = 0; i < p.length; i ++) {
-        if (p[i].tag === "var" || p[i].tag === "func" || p[i].tag === "class") {
+        if (p[i].tag === "var" || p[i].tag === "func" || p[i].tag === "class" || p[i].tag === "scope") {
             LastDeclare = i;
         } else {
             firstStmt = i;

@@ -358,6 +358,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
                     ...bodyStmts,
                     `br $label_${condLabel}`,`)`,`)`];
         }
+        case "scope":
         case "pass": {
             return [];
         }
