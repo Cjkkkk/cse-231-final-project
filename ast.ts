@@ -103,6 +103,7 @@ export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
 export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
+export type ForStmt<A> = { a?: A, tag: "for", cnt: Expr<A>, array: Expr<A>, body: Stmt<A>[] }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
 export type NameExpr<A> = { a?: A, tag: "name", name: string}
@@ -125,6 +126,7 @@ export type Stmt<A> =
     | ExprStmt<A>
     | ClassStmt<A>
     | ScopeStmt<A>
+    | ForStmt<A>
 
 export type Expr<A> =
     | LiteralExpr<A>

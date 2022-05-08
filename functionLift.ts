@@ -93,6 +93,10 @@ function getStmtsVarName(stmts: Stmt<any>[], names: Set<string>) {
             } case "scope": {
                 // DSC TODO 
                 break;
+            } case "for": {
+                getExprVarName(stmt.cnt, names);
+                getExprVarName(stmt.array, names);
+                getStmtsVarName(stmt.body, names);
             } default: {
                 throw new Error(`Unsupported stmt type:`);
             }

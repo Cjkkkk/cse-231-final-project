@@ -567,6 +567,15 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
 
             return {...s };
         }
+        case "for": {
+            const newCnt = tcExpr(s.cnt, envList);
+            const newArray = tcExpr(s.array, envList);
+            if (!isAssignable(newCnt.a, newArray.a)) {
+                throw new TypeError(`Expected type ${typeStr(newCnt.a)} but got type ${typeStr(newArray.a)}`);
+            }
+            const newBody = s.body.map(stmt => tcStmt(stmt, envList, currentReturn));
+            return {...s, cnt: newCnt, array: newArray, body: newBody };
+        }
     }
 }
 

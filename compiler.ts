@@ -358,6 +358,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             result.push(`local.set $scratch`);
             return result;
         }
+        case "for": {
+            // TODO XHF
+        }
     }
 }
 
