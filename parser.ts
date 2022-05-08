@@ -3,6 +3,7 @@ import { parser } from "@lezer/python";
 import { TreeCursor } from "@lezer/common";
 import { BinOp, Expr, Stmt, UniOp, Type, TypeDef, CondBody, FuncStmt, VarStmt, NameExpr} from "./ast";
 import { ParseError } from "./error";
+import { PassThrough } from "stream";
 
 
 export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<any>> {
@@ -496,6 +497,19 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             c.parent(); // pop going into stmt
             assert(c.node.type.name === originName);
             return { tag: "expr", expr: expr }
+        }
+        case "ScopeStatement": {
+            c.firstChild();
+            var t = c;
+            if (t.name !== "global" && t.name !== "nonlocal") {
+                throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
+            }
+            const global = t.name === "global";
+            c.nextSibling();
+            const name = s.substring(c.from, c.to);
+            c.parent(); // pop going into stmt
+            assert(c.node.type.name === originName);
+            return { tag: "scope", name, global  };
         }
         default:
             throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));

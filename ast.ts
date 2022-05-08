@@ -95,6 +95,7 @@ export type PassStmt<A> = { a?: A, tag: "pass"}
 export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
+export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
 export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
@@ -116,6 +117,7 @@ export type Stmt<A> =
     | ReturnStmt<A>
     | ExprStmt<A>
     | ClassStmt<A>
+    | ScopeStmt<A>
 
 export type Expr<A> =
     | LiteralExpr<A>
