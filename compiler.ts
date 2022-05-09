@@ -1,7 +1,9 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass} from './ast';
+import { Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass, FuncStmt, VarStmt} from './ast';
 import {parse} from './parser';
 import {tcProgram } from './tc';
+import {functionLifting} from "./functionLift"
+
 
 type Env = Set<string>;
 type Node = {subs: Node[], cls: ClassStmt<Type>};
@@ -19,9 +21,6 @@ function variableNames(stmts: Stmt<Type>[]) : string[] {
     return vars;
 }
 
-function funs(stmts: Stmt<Type>[]) : Stmt<Type>[] {
-    return stmts.filter(stmt => stmt.tag === "func");
-}
 
 function nonFuns(stmts: Stmt<Type>[]) : Stmt<Type>[] {
     return stmts.filter(stmt => stmt.tag !== "func" && stmt.tag !== "class" );
@@ -31,8 +30,8 @@ function classes(stmts: Stmt<Type>[]) : Stmt<Type>[] {
     return stmts.filter(stmt => stmt.tag === "class");
 }
 
-function varsFunsClassesStmts(stmts: Stmt<Type>[]) : [string[], Stmt<Type>[], Stmt<Type>[], Stmt<Type>[]] {
-    return [variableNames(stmts), funs(stmts), classes(stmts), nonFuns(stmts)];
+function varsClassesStmts(stmts: Stmt<Type>[]) : [string[], Stmt<Type>[], Stmt<Type>[]] {
+    return [variableNames(stmts), classes(stmts), nonFuns(stmts)];
 }
 
 export async function run(watSource : string, config: any) : Promise<number> {
@@ -131,34 +130,27 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
 
             } else if(fcm.has(expr.name)) {
                 // is class init call
-                valStmts.push(`i32.const -2147483648`);
+                valStmts.push(...codeGenExpr({tag: "literal", value: "None"}, locals, fcm, mcm));
                 toCall = expr.name + "$__init__";
             }
             valStmts.push(`call $${toCall}`);
             return valStmts;
         }
         case "method": {
-            // TODO: add self here
             const objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
             const argsStmts = expr.args.map(e => codeGenExpr(e, locals, fcm, mcm)).flat();
-            // return [
-            //     ...objStmts, // self
-            //     ...argsStmts,
-            //     `call $${(expr.obj.a as {tag: "class", name: string}).name}$${expr.name}`
-            // ];
-
             const className = (expr.obj.a as {tag: "class", name: string}).name;
             const mc = mcm.get(className);
             return [
                 ...objStmts, // self
-                `local.set $scratch`,
+                `local.set $scratch`, // try to dup self
                 `local.get $scratch`,
                 ...argsStmts,
                 `local.get $scratch`, // self
                 `i32.load`, // get v_table pointer
                 `i32.const ${mc.order.indexOf(expr.name)}`, // offset
                 `i32.add`, // get index into the table
-                `call_indirect (type $${className}$${expr.name})`
+                `call_indirect (type ${mc.mapping.get(expr.name)})`
             ];
         }
 
@@ -265,17 +257,11 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             const nonInitMethodStmts = nonInitMethod.map((f) => codeGenStmt({...f, name: `${stmt.name}$${f.name}`}, locals, fcm, mcm)).flat();
             var initMethodStmts:string[] = [];
 
-            if (initMethod.length != 0) {
-                initMethodStmts = codeGenStmt({...initMethod[0], name: `${stmt.name}$${initMethod[0].name}`}, locals, fcm, mcm);
-                let idx = 0;
-                initMethodStmts.forEach((s)=>{if(s.includes("local $")) idx += 1;});
-                initMethodStmts = [...initMethodStmts.slice(0, idx + 1),  ...initAllocStmts, `local.set $self`, ...initMethodStmts.slice(idx + 1,-2), `local.get $self`, ')']
-            } else {
-                // TODO: remove this in the future
-                initMethodStmts = [`(func $${stmt.name}$__init__ (param $self i32) (result i32)`, 
-                        ...initAllocStmts, 
-                        `)`];
-            }
+            initMethodStmts = codeGenStmt({...initMethod[0], name: `${stmt.name}$${initMethod[0].name}`}, locals, fcm, mcm);
+            let idx = 0;
+            initMethodStmts.forEach((s)=>{if(s.includes("local $")) idx += 1;});
+            initMethodStmts = [...initMethodStmts.slice(0, idx + 1),  ...initAllocStmts, `local.set $self`, ...initMethodStmts.slice(idx + 1,-2), `local.get $self`, ')']
+            
 
             return [...initMethodStmts, ...nonInitMethodStmts];
         }
@@ -372,6 +358,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             result.push(`local.set $scratch`);
             return result;
         }
+        case "for": {
+            // TODO XHF
+        }
     }
 }
 
@@ -448,12 +437,17 @@ function addFieldFromSuperClass(root: Node) {
         const node = NodeList.pop();
         node.subs.forEach((sub) => {
             NodeList.push(sub);
+            // KSB TODO: now is a quick fix to put super fields before sub fields
+            // This should be done in type check maybe?
+            const superFields: VarStmt<Type>[] = [];
             node.cls.fields.forEach((supF)=> {
                 if (sub.cls.fields.some((subF)=>subF.var.name === supF.var.name)) {
                     throw new Error(`Redefine field ${supF.var.name} in sub class ${sub.cls.name}`);
                 }
-                sub.cls.fields.push(supF);
+                superFields.push(supF);
+                // sub.cls.fields.push(supF);
             })
+            sub.cls.fields = superFields.concat(sub.cls.fields);
         })
     }
 }
@@ -493,7 +487,6 @@ function codeGenTable(root: Node, cm: MethodContextMap) : Array<string> {
 
 function buildFieldContext(root: Node): FieldContexMap {
     const fm = new Map<string, Map<string, number>>();
-
     let NodeList = [root];
     while (NodeList.length !== 0) {
         const node = NodeList.pop();
@@ -567,22 +560,32 @@ export function builtinGen(): string[] {
 
 
 export function compile(source : string) : string {
+    // parse
     let ast = parse(source);
+
+    // tc
     ast = tcProgram(ast);
 
     const locals = new Set<string>();
-    const [vars, funs, classes, stmts] = varsFunsClassesStmts(ast);
-    
+    const funs: FuncStmt<any>[] = [];
 
+    // function lifting
+    const newStmts = functionLifting(ast, funs); 
+    const [vars, classes, stmts] = varsClassesStmts(newStmts);
+
+    // build inheritance graph
     const root = buildGraph(classes as ClassStmt<any>[]);
+
+    // add field to subclass
     addFieldFromSuperClass(root);
 
+    // build context
     const mcm = buildMethodContext(root);
     const fcm = buildFieldContext(root);
 
 
+    // codegen
     const builtinCode = addIndent(builtinGen(), 1).join("\n");
-
     const tableCode = addIndent(codeGenTable(root, mcm), 1).join("\n");
     const classCode = classes.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
     const funsCode = funs.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f => f.join("\n")).join("\n\n");

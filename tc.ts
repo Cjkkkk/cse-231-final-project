@@ -13,7 +13,9 @@ type SymbolTableList = Env<UnionSymbol>
 enum SearchScope {
     LOCAL = -1, 
     GLOBAL = 0,
-    NONLOCAL = 1
+    NONLOCAL = 1,
+    LOCAL_AND_GLOBAL = 2,
+    ALL = 3
 } 
 
 
@@ -74,12 +76,19 @@ class Env<T> {
             start = 0;
         else if (scope === -1)
             end = this.decls.length - 1;
-        else if (scope === 1) {
+        else if (scope === 1) { // NONLOCAL
             if (this.decls.length < 3) {
                 return [false, undefined];
             }
             start = 1;
             end = this.decls.length - 2;
+        } 
+        else if (scope === 2) {
+            if (this.decls[0].has(id))
+                return [true, this.decls[0].get(id)];
+            if (this.decls[start].has(id))
+                return [true, this.decls[start].get(id)];
+            return [false, undefined];
         }
         for (let i = start; i >= end; i--) {
             if (this.decls[i].has(id))
@@ -164,7 +173,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             }
         }
         case "name": {
-            let [found, t] = envList.lookUpSymbol(e.name);
+            let [found, t] = envList.lookUpSymbol(e.name, 3);
             if (!found) {
                 throw new ReferenceError(`Reference error: ${e.name} is not defined`)
             } 
@@ -191,7 +200,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                 return res;
             }
 
-            let [found, t] = envList.lookUpSymbol(e.name, 0);
+            let [found, t] = envList.lookUpSymbol(e.name, 2);
             if(!found) {
                 throw new ReferenceError(`function ${e.name} is not defined`);
             }
@@ -408,18 +417,16 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
         case "class": {
             // TODO: check if redefine class or method or field!
             // TODO: add super class fields into this
-            const [found, superClassSymbol] = envList.lookUpSymbol(s.super, 0);
-            if (!found || superClassSymbol.tag !== "class") {
-                throw new TypeError(`Class ${s.super} is not defined`)
-            }
-
             let className = s.super;
-            let classData = superClassSymbol.type;
             // track all the super class
             while (className !== "object") {
+                const [found, superClassSymbol] = envList.lookUpSymbol(className, 0);
+                if (!found || superClassSymbol.tag !== "class") {
+                    throw new TypeError(`Class ${className} is not defined`)
+                }
+                let classData = superClassSymbol.type;
                 if (!s.fields.some((f)=>classData.fields.has(f.var.name))) {
                     className = classData.super;
-                    classData = (envList.lookUpSymbol(className, 0)[1] as ClassSymbol).type;
                 } else {
                     throw new TypeError(`TYPE ERROR: Redefine field in class ${s.name}`);
                 }
@@ -545,13 +552,29 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             return { ...s, value: valTyp };
         }
         case "scope": {
-            const scope = s.global? SearchScope.GLOBAL: SearchScope.NONLOCAL;
+            const scope = s.global ? SearchScope.GLOBAL : SearchScope.NONLOCAL;
             const [found, symbol] = envList.lookUpSymbol(s.name, scope);
             if (!found) {
                 throw new ReferenceError(`not a ${s.global? "global": "nonlocal"} variable: ${s.name}`);
             }
+            if (!s.global) {
+                const [found_glb, symbol] = envList.lookUpSymbol(s.name, SearchScope.GLOBAL);
+                if (found_glb) {
+                    throw new ReferenceError(`not a nonlocal variable: ${s.name}`);
+                }
+            }
             envList.defineNewSymbol(s.name, symbol);
+
             return {...s };
+        }
+        case "for": {
+            const newCnt = tcExpr(s.cnt, envList);
+            const newArray = tcExpr(s.array, envList);
+            if (!isAssignable(newCnt.a, newArray.a)) {
+                throw new TypeError(`Expected type ${typeStr(newCnt.a)} but got type ${typeStr(newArray.a)}`);
+            }
+            const newBody = s.body.map(stmt => tcStmt(stmt, envList, currentReturn));
+            return {...s, cnt: newCnt, array: newArray, body: newBody };
         }
     }
 }

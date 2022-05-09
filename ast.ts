@@ -2,13 +2,15 @@ export enum BinOp {Plus = "PLUS", Minus = "MINUS", Mul = "MUL", Div = "DIV", Mod
 export enum UniOp {Not = "NOT", Neg = "NEG"}
 export type Literal = "None" | true | false | number
 
-export const INT = { tag: "int"} 
+export const INT = {tag: "int"} 
 export const BOOL = {tag: "bool"} 
 export const NONE = {tag: "none"} 
 
 export const keywords = new Set<string>([
     "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
-    "global", "nonlocal", "string", "list", "import", "try", "except"
+    "global", "nonlocal", "string", "list", "import", "try", "except", "False", "True", "and", 
+    "as", "assert", "async", "await", "break", "continue", "del", "finally", "from", "in",
+     "is", "lambda", "not", "or", "pass", "raise", "with", "yield"
 ]);
 
 export type Type = 
@@ -101,15 +103,16 @@ export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
 export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
+export type ForStmt<A> = { a?: A, tag: "for", cnt: Expr<A>, array: Expr<A>, body: Stmt<A>[] }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
-export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type NameExpr<A> = { a?: A, tag: "name", name: string}
 export type UnaryExpr<A> = { a?: A, tag: "unary", op: UniOp, expr: Expr<A>}
 export type BinaryExpr<A> = { a?: A, tag: "binary", op: BinOp, lhs: Expr<A>, rhs: Expr<A>}
 export type CallExpr<A> = { a?: A, tag: "call", name: string, args: Expr<A>[]}
 export type GetFieldExpr<A> = { a?: A, tag: "getfield", obj: Expr<A>, name: string}
 export type MethodExpr<A> = { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
+export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type IndexExpr<A> = { a?: A, tag: "index", obj: Expr<A>, idx: Expr<A> }
 
 export type Stmt<A> =
@@ -123,6 +126,7 @@ export type Stmt<A> =
     | ExprStmt<A>
     | ClassStmt<A>
     | ScopeStmt<A>
+    | ForStmt<A>
 
 export type Expr<A> =
     | LiteralExpr<A>

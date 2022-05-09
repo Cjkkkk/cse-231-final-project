@@ -511,6 +511,22 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             assert(c.node.type.name === originName);
             return { tag: "scope", name, global  };
         }
+        case "ForStatement": {
+            const t = c;
+            t.firstChild(); // for
+            assert(t.node.type.name === "for");
+            t.nextSibling();
+            const cnt = traverseExpr(t, s);
+            t.nextSibling(); // in
+            assert(t.node.type.name === "in");
+            t.nextSibling(); // array
+            const array = traverseExpr(t, s);
+            t.nextSibling(); // body
+            const body = traverseBody(t, s);
+            t.parent()
+            assert(t.node.type.name === originName);
+            return { tag: "for", cnt, array, body };
+        }
         default:
             throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
     }
