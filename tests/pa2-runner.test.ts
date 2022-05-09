@@ -1,10 +1,31 @@
 import { compile, run } from '../compiler';
 import { expect, assert } from 'chai';
 import { importObject } from './import-object.test';
+
 import 'mocha';
 
 function runTest(source: string) {
-    return run(compile(source), importObject);
+    let newImportObject = {
+        ...importObject,
+        check: {
+            check_init: (arg: any) => {
+                if (arg === 0) {
+                    throw new Error("RUNTIME ERROR: object not intialized");
+                }
+                return arg;
+            },
+            check_index: (length: any, arg: any) => {
+                if (arg >= length || arg < 0) {
+                    throw new Error("RUNTIME ERROR: Index out of bounds");
+                }
+                return arg;
+            },
+            check_if_none: () => {
+                return 0;
+            }
+        }
+    };
+    return run(compile(source), newImportObject);
 }
 
 // Clear the output before every test
@@ -122,53 +143,53 @@ describe('test control flow', () => {
 
     it('if expression', async () => {
         await runTest(`
-            x:int = 3
-            if x > 2:
-                print(x)
-            else:
-                print(-x)
+x:int = 3
+if x > 2:
+    print(x)
+else:
+    print(-x)
         `);
         expect(importObject.output).to.equal("3\n");
     });
 
     it('elif expression 1', async () => {
         await runTest(`
-            x:int = 25
-            if x < 2:
-                print(0)
-            elif x < 10:
-                print(1)
-            elif x > 30:
-                print(2)
-            else:
-                print(3)
+x:int = 25
+if x < 2:
+    print(0)
+elif x < 10:
+    print(1)
+elif x > 30:
+    print(2)
+else:
+    print(3)
         `);
         expect(importObject.output).to.equal("3\n");
     });
 
     it('elif expression 2', async () => {
         await runTest(`
-            x:int = 5
-            if x <= 2:
-                x=0
-            elif x <= 10:
-                x=1
-            elif x >= 30:
-                x=2
-            else:
-                x=3
-            print(x)
+x:int = 5
+if x <= 2:
+    x=0
+elif x <= 10:
+    x=1
+elif x >= 30:
+    x=2
+else:
+    x=3
+print(x)
         `);
         expect(importObject.output).to.equal("1\n");
     });
 
     it('while expression', async () => {
         await runTest(`
-            limit:int = 100
-            x:int = 1
-            while x < limit:
-                x = x + 1
-            print(x)
+limit:int = 100
+x:int = 1
+while x < limit:
+    x = x + 1
+print(x)
         `);
         expect(importObject.output).to.equal("100\n");
     });
@@ -185,15 +206,15 @@ describe('test functions', () => {
 
     it('function definition', async () => {
         await runTest(`
-            x:int = 10
-            def fun(x:int)->int:
-                y:int = 0
-                y = x
-                x = 1
-                return x
-            z:int = 0
-            z = fun(x)
-            print(z)
+x:int = 10
+def fun(x:int)->int:
+    y:int = 0
+    y = x
+    x = 1
+    return x
+z:int = 0
+z = fun(x)
+print(z)
         `);
         expect(importObject.output).to.equal("1\n");
     });
@@ -201,82 +222,82 @@ describe('test functions', () => {
 
     it('local var', async () => {
         await runTest(`
-            x:int = 10
-            def fun1(x: int):
-                x = 1
-                return
-            def fun2():
-                x:int = 1
-                return
-            fun1(x)
-            print(x)
-            x = 10
-            fun2()
-            print(x)
+x:int = 10
+def fun1(x: int):
+    x = 1
+    return
+def fun2():
+    x:int = 1
+    return
+fun1(x)
+print(x)
+x = 10
+fun2()
+print(x)
         `);
         expect(importObject.output).to.equal("10\n10\n");
     });
 
     it('function 1', async () => {
         await runTest(`
-                y:bool = False
-                def f(x:int)->bool:
-                    return x == 1
-                y = f(1)
-                print(y)
+y:bool = False
+def f(x:int)->bool:
+    return x == 1
+y = f(1)
+print(y)
         `);
         expect(importObject.output).to.equal("True\n");
     });
 
     it('function 2', async () => {
         await runTest(`
-                x:int = 4
-                y:int = 0
-                def sqr(x:int)->int:
-                    return x * x
-                y = sqr(3) + sqr(x)
-                print(y)
+x:int = 4
+y:int = 0
+def sqr(x:int)->int:
+    return x * x
+y = sqr(3) + sqr(x)
+print(y)
         `);
         expect(importObject.output).to.equal("25\n");
     });
 
     it('none', async () => {
         await runTest(`
-            def fun1():
-                return None
-            def fun2():
-                return
-            print(fun1())
-            print(fun2())
+def fun1():
+    return None
+def fun2():
+    return
+print(fun1())
+print(fun2())
         `);
         expect(importObject.output).to.equal("None\nNone\n");
     });
 
     it('function test', async () => {
         const source = `
-            x: int = 1
-            def f(x: int) -> int:
-                y:int = 2
-                y = x + y + 1
-                x = x + 1
-                return x * y
-            print(f(x))
-            print(x)
+x: int = 1
+def f(x: int) -> int:
+    y:int = 2
+    y = x + y + 1
+    return x * y
+    
+print(f(x))
+print(x)
         `
         await runTest(source);
-        expect(importObject.output).to.equal("8\n1\n");
+        expect(importObject.output).to.equal("4\n1\n");
     });
 
     it('function test', async () => {
         const source = `
-            def f(x:int)->int:
-            return x * x
-            a:int = 1
-            res:int = 0
-            while a <= 10:
-                res = res + f(a)
-                a = a + 1
-            print(res)
+def f(x:int)->int:
+return x * x
+a:int = 1
+res:int = 0
+while a <= 10:
+    res = res + f(a)
+    a = a + 1
+print(res)
         `
         await runTest(source);
         expect(importObject.output).to.equal("385\n");
@@ -285,9 +306,9 @@ describe('test functions', () => {
     it('function error', async () => {
         try {
             await runTest(`
-                def f(x:int)->int:
-                    y:bool = False
-                    return y
+def f(x:int)->int:
+    y:bool = False
+    return y
             `);
             assert(false);
         } catch (error) {
@@ -295,10 +316,10 @@ describe('test functions', () => {
         }
         try {
             await runTest(`
-                y:bool = False
-                def f(x:int)->int:
-                    return x
-                f(y)
+y:bool = False
+def f(x:int)->int:
+    return x
+f(y)
             `);
             assert(false);
         } catch (error) {
@@ -306,10 +327,10 @@ describe('test functions', () => {
         }
         try {
             await runTest(`
-                y:int = 1
-                def f(x:int)->int:
-                    return x
-                f(y, y)
+y:int = 1
+def f(x:int)->int:
+    return x
+f(y, y)
             `);
             assert(false);
         } catch (error) {
@@ -318,10 +339,10 @@ describe('test functions', () => {
 
         try {
             await runTest(`
-                y:int = 1
-                def f(x:int)->bool:
-                    return x == 1
-                y = f(1)
+y:int = 1
+def f(x:int)->bool:
+    return x == 1
+y = f(1)
             `);
             assert(false);
         } catch (error) {
@@ -333,12 +354,12 @@ describe('test functions', () => {
     it('function variable scope error', async () => {
         try {
             await runTest(`
-                x:int = 10
-                def fun():
-                    x = 1
-                    return
-                fun()
-                print(x)
+x:int = 10
+def fun():
+    x = 1
+    return
+fun()
+print(x)
             `);
             assert(false);
         } catch (error) {
@@ -347,10 +368,10 @@ describe('test functions', () => {
 
         try {
             await runTest(`
-                y:bool = False
-                def f(x:int)->int:
-                    return x
-                f(y)
+y:bool = False
+def f(x:int)->int:
+    return x
+f(y)
             `);
             assert(false);
         } catch (error) {
@@ -358,10 +379,10 @@ describe('test functions', () => {
         }
         try {
             await runTest(`
-                y:int = 1
-                def f(x:int)->int:
-                    return x
-                f(y, y)
+y:int = 1
+def f(x:int)->int:
+    return x
+f(y, y)
             `);
             assert(false);
         } catch (error) {
@@ -370,10 +391,10 @@ describe('test functions', () => {
 
         try {
             await runTest(`
-                y:int = 1
-                def f(x:int)->bool:
-                    return x == 1
-                y = f(1)
+y:int = 1
+def f(x:int)->bool:
+    return x == 1
+y = f(1)
             `);
             assert(false);
         } catch (error) {
@@ -386,25 +407,25 @@ describe('test functions', () => {
     it('redefinition', async () => {
         try {
             await runTest(`
-                x:int = 1
-                x:int = 2
+x:int = 1
+x:int = 2
             `);
             assert(false);
         } catch (error) {
-            expect(error.message).to.equal("Redefine symbol: x");
+            expect(error.message).to.contain("Redefine symbol: x");
         }
 
         try {
             await runTest(`
-                x:int = 1
-                def f(x:int)->int:
-                    x:int = 1
-                    return x
-                x = f(x)
+x:int = 1
+def f(x:int)->int:
+    x:int = 1
+    return x
+x = f(x)
             `);
             assert(false);
         } catch (error) {
-            expect(error.message).to.equal("Redefine symbol: x");
+            expect(error.message).to.contain("Redefine symbol: x");
         }
     });
 
@@ -416,86 +437,86 @@ describe('test class', () => {
 
     it('Pass subclass as function argument', async () => {
         await runTest(`
-            class A(object):
-                pass
-            
-            class B(A):
-                pass
-            
-            def f(a: A):
-                pass
-            b: B = None
-            f(b)
+class A(object):
+    pass
+
+class B(A):
+    pass
+
+def f(a: A):
+    pass
+b: B = None
+f(b)
         `);
     });
 
     it('Pass subclass as function return value', async () => {
         await runTest(`
-            class A(object):
-                pass
-            
-            class B(A):
-                pass
-            
-            def f() -> A:
-                b: B = None
-                return b
+class A(object):
+    pass
+
+class B(A):
+    pass
+
+def f() -> A:
+    b: B = None
+    return b
         `);
     });
 
 
     it('Pass subclass as method argument with nested inheritance', async () => {
         await runTest(`
-            class A(object):
-                pass
-            
-            class B(A):
-                pass
-            
-            class C(B):
-                pass
-            
-            class D(object):
-                def dumb(self: D, a: A):
-                    pass
-            
-            d: D = None
-            c: C = None
-            d = D()
-            d.dumb(c)
+class A(object):
+    pass
+
+class B(A):
+    pass
+
+class C(B):
+    pass
+
+class D(object):
+    def dumb(self: D, a: A):
+        pass
+
+d: D = None
+c: C = None
+d = D()
+d.dumb(c)
         `);
     });
 
     it('Pass subclass as function argument with nested inheritance', async () => {
         await runTest(`
-            class A(object):
-                pass
-            
-            class B(A):
-                pass
-            
-            class C(B):
-                pass
-            
-            def f() -> A:
-                c: C = None
-                return c
+class A(object):
+    pass
+
+class B(A):
+    pass
+
+class C(B):
+    pass
+
+def f() -> A:
+    c: C = None
+    return c
         `);
     });
 
     it('Pass different class as function argument', async () => {
         try {
             await runTest(`
-                class A(object):
-                    pass
-                
-                class B(object):
-                    pass
-                
-                def f(a: A):
-                    pass
-                b: B = None
-                f(b)
+class A(object):
+    pass
+
+class B(object):
+    pass
+
+def f(a: A):
+    pass
+b: B = None
+f(b)
             `);
             assert(false);
         } catch (error) {
@@ -507,15 +528,15 @@ describe('test class', () => {
     it('Pass different class as function return value', async () => {
         try {
             await runTest(`
-                class A(object):
-                    pass
-                
-                class B(object):
-                    pass
-                
-                def f() -> A:
-                    b: B = None
-                    return b
+class A(object):
+    pass
+
+class B(object):
+    pass
+
+def f() -> A:
+    b: B = None
+    return b
             `);
             assert(false);
         } catch (error) {
@@ -527,11 +548,11 @@ describe('test class', () => {
     it('Redefine same field in sub class', async () => {
         try {
             await runTest(`
-                class A(object):
-                    a: int = 1
-                
-                class B(A):
-                    a: int = 2
+class A(object):
+    a: int = 1
+
+class B(A):
+    a: int = 2
             `);
             assert(false);
         } catch (error) {
@@ -539,20 +560,110 @@ describe('test class', () => {
         }
     });
 
+});
 
-    // it('reference same field in super class', async () => {
-    //     try {
-    //         await runTest(`
-    //             class A(object):
-    //                 a: int = 1
-                
-    //             class B(A):
-    //                 def f(self: B):
-    //                     self.a = 2
-    //         `);
-    //         assert(false);
-    //     } catch (error) {
-    //         expect(error.message).to.equal("TypeError");
-    //     }
+
+
+describe('test classes', () => {
+    const config = { importObject };
+    it('class definition', async () => {
+        await runTest(`
+class Counter(object):
+    n: int = 456
+c:Counter = None
+c = Counter()
+print(c.n)
+c.n = 1
+print(c.n)
+        `);
+        expect(importObject.output).to.equal("456\n1\n");
+    });
+
+    it('class definition', async () => {
+        await runTest(`
+class Rat(object):
+    n: int = 123
+    d: int = 456
+    def __init__(self: Rat):
+        pass
+x:int = 1
+r1: Rat = None
+r1 = Rat()
+r1.n = 4
+r1.d = 5
+print(r1.n)
+x = r1.n
+print(x + r1.d)
+        `);
+        expect(importObject.output).to.equal("4\n9\n");
+    });
+
+    it('method test', async () => {
+        await runTest(`
+class Counter(object):
+    n: int = 0
+    def inc(self:Counter):
+        self.n = self.n + 1
+c:Counter = None
+c = Counter()
+c.inc()
+print(c.n)
+c.inc()
+print(c.n)
+        `);
+        expect(importObject.output).to.equal("1\n2\n");
+    });
+
+    it('method test', async () => {
+        await runTest(`
+class Counter(object):
+    n: int = 0
+    def inc(self:Counter, n: int):
+        self.n = self.n + n
+c:Counter = None
+c = Counter()
+c.inc(5)
+print(c.n)
+        `);
+        expect(importObject.output).to.equal("5\n");
+    });
+
+    it('method test', async () => {
+        await runTest(`
+class Counter(object):
+    n: int = 0
+    def inc(self:Counter):
+        self.n = self.n + 1
+c:int = 1
+c = Counter().n
+print(c)
+        `);
+        expect(importObject.output).to.equal("0\n");
+    });
+
+    it('class test', async () => {
+        await runTest(`
+class Point(object):
+    x : int = 77
+    y : int = 99
+def flip(toflip : Point) -> Point:
+    flipped : Point = None
+    flipped = Point()
+    flipped.x = toflip.y
+    flipped.y = toflip.x
+    return flipped
+p : Point = None
+p = Point()
+print(flip(flip(flip(p))).x)
+        `);
+        expect(importObject.output).to.equal("99\n");
+    });
+
+
+    // it('prints a unary operation 3', async () => {
+    //     await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
+    //     expect(importObject.output).to.equal("5\n5\n");
     // });
-})
+
+});
+

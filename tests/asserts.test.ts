@@ -52,3 +52,12 @@ export function assertTCFail(name: string, source: string) {
   });
 }
 
+export function assertFailContain(name: string, source: string, errMessage: string) {
+  it(name, async () => {
+    try {
+      typeCheck(source);
+    } catch (err) {
+      expect(err.message).to.contain(errMessage);
+    }
+  });
+}

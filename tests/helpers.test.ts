@@ -14,8 +14,13 @@ export function typeCheck(source: string) : Type {
         return "none"
     }
     const lastType = (lastStmt as ExprStmt<any>).expr.a;
-    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") return lastType.tag;
-    else if (lastType.tag === "class") return CLASS(lastType.name);
+    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") 
+        return lastType.tag;
+    else if (lastType.tag === "class") 
+        return CLASS(lastType.name);
+    else if (lastType.tag === "list") {
+        return LIST(lastType.type);
+    }
     else {
         return "none";
     }
@@ -27,10 +32,27 @@ export function typeCheck(source: string) : Type {
 export async function run(source: string) {
     const wasmSource = compile(source);
     try {
-        (importObject as any).check_if_none = function() {
-            return 0;
-        }
-        const v = await runT(wasmSource, importObject);
+        let newImportObject = {
+            ...importObject,
+            check: {
+                check_init: (arg: any) => {
+                    if (arg === 0) {
+                        throw new Error("RUNTIME ERROR: object not intialized");
+                    }
+                    return arg;
+                },
+                check_index: (length:any, arg: any) => {
+                    if (arg >= length || arg < 0) {
+                        throw new Error("RUNTIME ERROR: Index out of bounds");
+                    }
+                    return arg;
+                },
+                check_if_none: () => {
+                    return 0;
+                }
+            }
+        };
+        const v = await runT(wasmSource, newImportObject);
         return v;
     } catch (err){
         throw new Error("RUNTIME ERROR: " + err.message)
@@ -43,10 +65,30 @@ type Type =
   | "bool"
   | "none"
   | { tag: "object", class: string }
+  | { tag: "list", type: Type }
+  | { tag: "string" }
 
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";
 export const NONE : Type = "none";
 export function CLASS(name : string) : Type { 
     return { tag: "object", class: name }
+};
+
+export function LIST(typ: any ): Type {
+    // console.log(typ);
+    // console.log(typ.hasOwnProperty("tag"));
+    // return "int";
+    if (typ.hasOwnProperty("tag")) {
+        if (typ.tag === "class") 
+            return { tag: "list", type: typ.name };
+        else if (typ.tag === "int" || typ.tag === "bool" || typ.tag === "none") {
+            return { tag: "list", type: typ.tag };
+        }
+        else if (typ.tag === "list") {
+            return { tag: "list", type: LIST(typ.type) };
+        }
+    } else {
+        return { tag: "list", type: typ};
+    }
 };

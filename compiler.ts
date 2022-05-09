@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr} from './ast';
+import {Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass} from './ast';
 import {parse} from './parser';
 import {tcProgram } from './tc';
 
@@ -72,6 +72,7 @@ export function unaryOpStmts(op : UniOp) {
     }
 }
 
+
 export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap, mcm: MethodContextMap) : Array<string> {
     switch(expr.tag) {
         case "literal": {
@@ -104,7 +105,11 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         case "binary": {
             const lhsExprs = codeGenExpr(expr.lhs, locals, fcm, mcm);
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
-            const opstmts = binOpStmts(expr.op);
+            var opstmts = binOpStmts(expr.op);
+            // DSC TODO: add list concat
+            if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
+                opstmts = [`call $concat_list`];
+            }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
         }
         case "call":{
@@ -117,6 +122,13 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                     case "int": toCall = "print_num"; break;
                     case "none": toCall = "print_none"; break;
                 }
+            } else if (expr.name === "len") {
+                valStmts.push(
+                    // `(call $check_init)`,
+                    `(i32.load)`
+                );
+                return valStmts;
+
             } else if(fcm.has(expr.name)) {
                 // is class init call
                 valStmts.push(`i32.const -2147483648`);
@@ -151,13 +163,61 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         }
 
         case "getfield": {
-            const ObjStmt = codeGenExpr(expr.obj, locals, fcm, mcm);
+            var ObjStmt = codeGenExpr(expr.obj, locals, fcm, mcm);
             return [
                 ...ObjStmt,
                 `i32.const ${fcm.get((expr.obj.a as {tag: "class", name: string}).name).get(expr.name)}`,
                 `i32.add`,
                 `i32.load`
             ]
+        }
+
+        case "array": {
+            const eleStmt = expr.eles.slice().reverse().map((ele, i) => codeGenExpr(ele, locals, fcm, mcm)).flat();
+            // DSC TODO: now the length of the list is on heap
+            eleStmt.push(`(global.get $heap)`,
+                `(i32.const ${expr.eles.length})`,
+                `(i32.store)`);
+            expr.eles.slice().reverse().forEach((ele, i) => {
+                eleStmt.push(
+                    `(local.set $scratch)`,
+                    `(global.get $heap)`,
+                    `(i32.add (i32.mul (i32.const ${i+1}) (i32.const 4)))`,
+                    `(local.get $scratch)`,
+                    `(i32.store)`
+                )
+            })
+            eleStmt.push(
+                `(global.get $heap) ;; addr of the list`,
+                `(global.get $heap)`,
+                `(i32.const ${expr.eles.length})`,
+                `(i32.add (i32.const 1))`,
+                `(i32.mul (i32.const 4))`,
+                `(i32.add)`,
+                `(global.set $heap)`,
+            )
+            return eleStmt;
+        }
+        case "index": {
+            var objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
+            var idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
+            return [
+                ...objStmts,
+                // DSC TODO: below is an ugly way to use the address of obj more than once
+                `(local.set $scratch)`,
+                `(local.get $scratch)`,
+                // DSC TODO: check init , now memory error
+                // `(call $check_init)`,
+                `(i32.add (i32.const 4))`,
+
+                `(local.get $scratch)`,
+                `(i32.load) ;; load the length of the list`,
+                ...idxStmts,
+                `(call $check_index)`,
+                `(i32.mul (i32.const 4))`,
+                `(i32.add)`,
+                `(i32.load)`
+            ];
         }
     }
 }
@@ -298,6 +358,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
                     ...bodyStmts,
                     `br $label_${condLabel}`,`)`,`)`];
         }
+        case "scope":
         case "pass": {
             return [];
         }
@@ -447,10 +508,61 @@ function buildFieldContext(root: Node): FieldContexMap {
             env.set(f.var.name, currentOffset);
             currentOffset += 4;
         });
-
         fm.set(node.cls.name, env);
     }
     return fm;
+}
+
+export function builtinGen(): string[] {
+    // concat_list
+    const copy_list = [
+        `(func $copy_list (param $src i32) (param $addr i32)`,
+        `(local $i i32)`,
+        `(local $len i32)`,
+        `(local.get $src)`,
+        `(i32.load)`,
+        `(local.set $len)`,
+        `(local.set $i (i32.const 0))`,
+        ...`(block
+            (loop
+                (br_if 1 (i32.eq (local.get $i) (local.get $len)))
+                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (local.get $addr))
+                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (i32.const 4))
+                (i32.add (local.get $src))
+                (i32.load)
+                (i32.store)
+                (local.set $i (i32.add (local.get $i) (i32.const 1)))
+                (br 0)
+            )
+        )`.split("\n"),
+        `)`
+    ];
+    const concat_list = [
+        `(func $concat_list (param i32) (param i32) (result i32)`,
+        `(global.get $heap)`,
+        `(i32.load (local.get 0))`,
+        `(i32.load (local.get 1))`,
+        `(i32.add)`,
+        `(i32.store) ;; store new length`,
+        `(local.get 0)`,
+        `(i32.add (global.get $heap) (i32.const 4))`,
+        `(call $copy_list)`,
+        `(local.get 1)`,
+        `(i32.load (local.get 0))`,
+        `(i32.mul (i32.const 4))`,
+        `(i32.add (i32.const 4))`,
+        `(i32.add (global.get $heap))`,
+        `(call $copy_list)`,
+        `(global.get $heap) ;; return addr`,
+        `(i32.load (global.get $heap))`,
+        `(i32.mul (i32.const 4))`,
+        `(i32.add (i32.const 4))`,
+        `(global.set $heap)`,
+        `)`
+    ]
+    return [...copy_list, ...concat_list];
 }
 
 
@@ -467,6 +579,9 @@ export function compile(source : string) : string {
 
     const mcm = buildMethodContext(root);
     const fcm = buildFieldContext(root);
+
+
+    const builtinCode = addIndent(builtinGen(), 1).join("\n");
 
     const tableCode = addIndent(codeGenTable(root, mcm), 1).join("\n");
     const classCode = classes.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
@@ -490,8 +605,11 @@ export function compile(source : string) : string {
     (func $print_num (import "imports" "print_num") (param i32) (result i32))
     (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
     (func $print_none (import "imports" "print_none") (param i32) (result i32))
+    (func $check_init(import "check" "check_init") (param i32) (result i32))
+    (func $check_index(import "check" "check_index") (param i32) (param i32) (result i32))
     (memory $0 1)
-    (global $heap (mut i32) (i32.const 0))
+    (global $heap (mut i32) (i32.const 4))
+${builtinCode}
 ${varDeclCode}
 ${tableCode}
 ${classCode}

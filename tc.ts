@@ -1,19 +1,26 @@
 
 import { assert } from "chai";
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass } from "./ast";
+import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type}
 type FuncSymbol = {tag: "func", type: [Type[], Type]}
 type ClassSymbol = {tag: "class", type: {super: string, methods: Map<string, [Type[], Type]>, fields: Map<string, Type>}}
 type UnionSymbol = VarSymbol | FuncSymbol | ClassSymbol
-type SymbolTable = Map<string, UnionSymbol>
-type SymbolTableList = SymbolTable[];
+// type SymbolTable = Map<string, UnionSymbol>
+type SymbolTableList = Env<UnionSymbol>
+// type SymbolTableList = SymbolTable[];
+enum SearchScope {
+    LOCAL = -1, 
+    GLOBAL = 0,
+    NONLOCAL = 1
+} 
 
 
 function isSubClass(sub: Type, sup: Type, envList : SymbolTableList): boolean {
     if (sub.tag !== "class" || sup.tag !== "class") return false;
     else {
-        const [_, symbolSub] = lookUpSymbol(envList, sub.name, false);
+        const [_, symbolSub] = envList.lookUpSymbol(sub.name, SearchScope.GLOBAL);
         if (symbolSub.tag !== "class" || symbolSub.type.super === "object") return false;
         else if (symbolSub.type.super === sup.name) return true;
         else {
@@ -22,43 +29,65 @@ function isSubClass(sub: Type, sup: Type, envList : SymbolTableList): boolean {
     }
 }
 
-
-function getCurrentEnv(envList : SymbolTableList): SymbolTable {
-    assert(envList.length > 0);
-    return envList[envList.length - 1];
-}
-
-
-function enterNewEnv(envList : SymbolTableList): SymbolTableList {
-    envList.push(new Map<string, UnionSymbol>());
-    return envList;
-}
-
-
-function exitCurrentEnv(envList : SymbolTableList): SymbolTableList {
-    envList.pop();
-    return envList;
-}
-
-function lookUpSymbol(envList : SymbolTableList, name: string, current: boolean): [boolean, UnionSymbol] {
-    var end = current? envList.length - 1: 0;
-    for(var i = envList.length - 1; i >= end; i --) {
-        if(envList[i].has(name)) return [true, envList[i].get(name)];
+class Env<T> {
+    decls: Map<string, T | undefined>[];
+    constructor() {
+        this.decls = [];
+        this.addScope();
     }
-    // throw new Error(`Reference error: variable ${name} is not defined`)
-    return [false, undefined];
-}
+
+    addScope() {
+        this.decls.push(new Map<string, T>());
+    }
+
+    removeScope() {
+        return this.decls.pop();
+    }
+
+    getCurScope() {
+        return this.decls[this.decls.length - 1];
+    }
+
+    addDecl(id: string, value: T | undefined) {
+        this.getCurScope().set(id, value);
+    }
+    
+    defineNewSymbol(name: string, type: T) {
+        let [found, t] = this.lookUpSymbol(name, -1);
+        if (found) {
+            throw new Error("Redefine symbol: " + name);
+        } else {
+            this.addDecl(name, type);
+        }
+    }
 
 
-function defineNewSymbol(envList : SymbolTableList, name: string, type: UnionSymbol) {
-    let [found, t] = lookUpSymbol(envList, name, true);
-    if (found) {
-        throw new Error("Redefine symbol: " + name);
-    } else {
-        getCurrentEnv(envList).set(name, type);
+    lookUpSymbol(id: string, scope: SearchScope = -1): [boolean, T | undefined] {
+        // scope: 1 - search all scopes except the last one and the first one (nonlocal)
+        //        0 - search globally (only the global vars)
+        //       -1 - search locally (only the last scope, current scope)
+        // return: True - found, Type: type for id
+        //         False - not found, Type: "none"
+        let start: number = this.decls.length - 1;
+        let end: number = 0;
+        if (scope === 0)
+            start = 0;
+        else if (scope === -1)
+            end = this.decls.length - 1;
+        else if (scope === 1) {
+            if (this.decls.length < 3) {
+                return [false, undefined];
+            }
+            start = 1;
+            end = this.decls.length - 2;
+        }
+        for (let i = start; i >= end; i--) {
+            if (this.decls[i].has(id))
+                return [true, this.decls[i].get(id)];
+        }
+        return [false, undefined];
     }
 }
-
 
 
 export function didAllPathReturn(stmts: Stmt<any>[]): boolean {
@@ -66,7 +95,7 @@ export function didAllPathReturn(stmts: Stmt<any>[]): boolean {
 }
 
 
-export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
+export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
     switch(e.tag) {
         case "literal":
             if( e.value === "None") {
@@ -83,6 +112,12 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             const rhs = tcExpr(e.rhs, envList);
             switch(e.op) {
                 case BinOp.Plus: 
+                    if (lhs.a.tag === "list" || rhs.a.tag === "list") {
+                        if (!isTypeEqual(lhs.a, rhs.a)) {
+                            throw new TypeError(`Try to concat two lists on type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`);
+                        }
+                        return { ...e, a: lhs.a, lhs, rhs };
+                    }
                 case BinOp.Minus:
                 case BinOp.Mul:
                 case BinOp.Div: 
@@ -129,7 +164,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             }
         }
         case "name": {
-            let [found, t] = lookUpSymbol(envList, e.name, false);
+            let [found, t] = envList.lookUpSymbol(e.name);
             if (!found) {
                 throw new ReferenceError(`Reference error: ${e.name} is not defined`)
             } 
@@ -145,8 +180,18 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 const res : Expr<Type> = { ...e, a: {tag: "none"}, args: newArgs } ;
                 return res;
             }
+            else if (e.name === "len") {
+                if (e.args.length !== 1) { throw new Error("len expects a single argument"); }
+                const newArgs = tcExpr(e.args[0], envList);
+                if (newArgs.a.tag !== "list") {
+                    // DSC TODO: Chocopy do not type check this argument?
+                    throw new TypeError(`Cannot call len on type ${typeStr(newArgs.a)}`);
+                }
+                const res: Expr<Type> = { ...e, a: { tag: "int" }, args: [newArgs] };
+                return res;
+            }
 
-            let [found, t] = lookUpSymbol(envList, e.name, false);
+            let [found, t] = envList.lookUpSymbol(e.name, 0);
             if(!found) {
                 throw new ReferenceError(`function ${e.name} is not defined`);
             }
@@ -188,7 +233,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 throw new Error("can not get member of non-class")
             } 
             let classType = newObj.a;
-            let [found, symbol] = lookUpSymbol(envList, classType.name, false);
+            let [found, symbol] = envList.lookUpSymbol(classType.name, 0);
             if(!found) {
                 throw new ReferenceError(`class ${classType.name} is not defined`);
             }
@@ -201,7 +246,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             while (className !== "object") {
                 if (!classData.fields.has(e.name)) {
                     className = classData.super;
-                    classData = (lookUpSymbol(envList, className, false)[1] as ClassSymbol).type;
+                    classData = (envList.lookUpSymbol(className, 0)[1] as ClassSymbol).type;
                 } else {
                     break;
                 }
@@ -220,7 +265,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 throw new Error("can not call method on non-class")
             }
             let classType = newObj.a;
-            let [found, symbol] = lookUpSymbol(envList, classType.name, false);
+            let [found, symbol] = envList.lookUpSymbol(classType.name, 0);
             if(!found) {
                 throw new ReferenceError(`class ${classType.name} is not defined`);
             }
@@ -235,7 +280,7 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
                 if (!classData.methods.has(e.name) 
                     && (!classData.fields.has(e.name) || classData.fields.get(e.name).tag !== "callable")) {
                     className = classData.super;
-                    classData = (lookUpSymbol(envList, className, false)[1] as ClassSymbol).type;
+                    classData = (envList.lookUpSymbol(className, 0)[1] as ClassSymbol).type;
                 } else {
                     break;
                 }
@@ -270,6 +315,46 @@ export function tcExpr(e : Expr<any>, envList : SymbolTableList) : Expr<Type> {
             });
             return { ...e, a: ret, obj: newObj, args: newArgs };
         }
+        case "array": {
+            const newEles = e.eles.map(ele => tcExpr(ele, envList));
+            var typ: Type;
+            if (newEles.length === 0) {
+                typ = { tag: "list", type: null };
+            } else {
+                let generalType = newEles[0].a;
+                newEles.forEach(ele => {
+                    let curType = ele.a;
+                    if (!isTypeEqual(curType, generalType)) {
+                        if (isSubClass(generalType, curType, envList)) {
+                            generalType = curType;
+                        } else if (generalType.tag === "none" && isClass(curType)) {
+                            generalType = curType;
+                        } else if (!(curType.tag === "none" && isClass(generalType))) {
+                            throw new TypeError("Types in the list not uniform")
+                        }
+                    }
+                })
+                // if (!newEles.every(ele => isAssignable(ele.a, newEles[0].a) || isAssignable(newEles[0].a, ele.a))) {
+                //     throw new TypeError("Types in the list not uniform")
+                // }
+                typ = { tag: "list", type: generalType }
+            }
+            
+            return { ...e, a: typ, eles: newEles }
+        } 
+        case "index": {
+            const newObj = tcExpr(e.obj, envList);
+            if (newObj.a.tag !== "list") {
+                throw new TypeError(`Cannot index into type ${typeStr(newObj.a)}`)
+            }
+            const newIdx = tcExpr(e.idx, envList);
+            if (newIdx.a.tag !== "int") {
+                throw new TypeError(`Index is of non-integer type ${typeStr(newIdx.a)}`)
+            }
+            // for the case: l = [] \ l[0]
+            // throw error for index out of bound in runtime
+            return { ...e, obj: newObj, idx: newIdx, a: newObj.a.type }
+        }
     }
 }
 
@@ -277,21 +362,23 @@ export function tcFuncStmt(s : FuncStmt<any>, envList: SymbolTableList, currentR
     if (s.ret.tag !== "none" && !didAllPathReturn(s.body)) {
         throw new TypeError(`TYPE ERROR: All path in function ${s.name} must have a return statement`);
     }
-    envList = enterNewEnv(envList);
+    envList.addScope();
+    // envList = enterNewEnv(envList);
 
     // define param
-    s.params.forEach(p => defineNewSymbol(envList, p.name, {tag: "var", type: p.type}));
+    s.params.forEach(p => envList.defineNewSymbol(p.name, {tag: "var", type: p.type}));
 
     // define local variables and functions
     s.body.forEach(s => {
-        if (s.tag === "func") defineNewSymbol(envList, s.name, {tag: "func", type: [s.params.map(p => p.type), s.ret]});
-        else if (s.tag === "var") defineNewSymbol(envList, s.var.name, {tag: "var", type: s.var.type});
+        if (s.tag === "func") envList.defineNewSymbol(s.name, {tag: "func", type: [s.params.map(p => p.type), s.ret]});
+        else if (s.tag === "var") envList.defineNewSymbol(s.var.name, {tag: "var", type: s.var.type});
     })
 
     checkDefinition(s.body);
     const newBody = s.body.map(bs => tcStmt(bs, envList, s.ret));
     
-    exitCurrentEnv(envList);
+    // exitCurrentEnv(envList);
+    envList.removeScope();
     return { ...s, body: newBody };
 }
 
@@ -321,7 +408,7 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
         case "class": {
             // TODO: check if redefine class or method or field!
             // TODO: add super class fields into this
-            const [found, superClassSymbol] = lookUpSymbol(envList, s.super, false);
+            const [found, superClassSymbol] = envList.lookUpSymbol(s.super, 0);
             if (!found || superClassSymbol.tag !== "class") {
                 throw new TypeError(`Class ${s.super} is not defined`)
             }
@@ -332,7 +419,7 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             while (className !== "object") {
                 if (!s.fields.some((f)=>classData.fields.has(f.var.name))) {
                     className = classData.super;
-                    classData = (lookUpSymbol(envList, className, false)[1] as ClassSymbol).type;
+                    classData = (envList.lookUpSymbol(className, 0)[1] as ClassSymbol).type;
                 } else {
                     throw new TypeError(`TYPE ERROR: Redefine field in class ${s.name}`);
                 }
@@ -376,13 +463,13 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             const rhs = tcExpr(s.value, envList);
             const lhs = tcExpr(s.name, envList);
             if (lhs.tag === "name") {
-                const [found, t] = lookUpSymbol(envList, lhs.name, true);
+                const [found, t] = envList.lookUpSymbol(lhs.name);
                 if (!found) {
                     throw new ReferenceError(`Reference error: ${lhs.name} is not defined`);
                 }
-            }
+            } 
             if( !isAssignable(lhs.a, rhs.a) && !isSubClass(rhs.a, lhs.a, envList)) {
-                throw new TypeError(`TYPE ERROR: Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
+                throw new TypeError(`Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
             }
             
             return { ...s, name: lhs, value: rhs };
@@ -457,6 +544,15 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             }
             return { ...s, value: valTyp };
         }
+        case "scope": {
+            const scope = s.global? SearchScope.GLOBAL: SearchScope.NONLOCAL;
+            const [found, symbol] = envList.lookUpSymbol(s.name, scope);
+            if (!found) {
+                throw new ReferenceError(`not a ${s.global? "global": "nonlocal"} variable: ${s.name}`);
+            }
+            envList.defineNewSymbol(s.name, symbol);
+            return {...s };
+        }
     }
 }
 
@@ -464,7 +560,7 @@ export function checkDefinition(p : Stmt<any>[]) {
     var LastDeclare = -1;
     var firstStmt = p.length;
     for(var i = 0; i < p.length; i ++) {
-        if (p[i].tag === "var" || p[i].tag === "func" || p[i].tag === "class") {
+        if (p[i].tag === "var" || p[i].tag === "func" || p[i].tag === "class" || p[i].tag === "scope") {
             LastDeclare = i;
         } else {
             firstStmt = i;
@@ -478,20 +574,28 @@ export function checkDefinition(p : Stmt<any>[]) {
 
 
 export function tcProgram(p : Stmt<any>[]) : Stmt<Type>[] {
-    var envList: SymbolTableList = [];
+    // var envList: SymbolTableList = [];
 
-    envList = enterNewEnv(envList);
-    
+    // envList = enterNewEnv(envList);
+    var env = new Env<UnionSymbol>();   
     // check if all definition are proceeding statements
     checkDefinition(p);
     // define all the functions and variables
-    defineNewSymbol(envList, "object", {tag: "class", type: {super: "", methods: new Map<string, [Type[], Type]>(), fields: new Map<string, Type>()}});
+    env.defineNewSymbol("object", { tag: "class", 
+        type: { 
+            super: "", methods: new Map<string, [Type[], Type]>(), 
+            fields: new Map<string, Type>() 
+        } 
+    });
+    // defineNewSymbol(envList, "object", { tag: "class", type: { super: "", methods: new Map<string, [Type[], Type]>(), fields: new Map<string, Type>() } });
     p.forEach(s => {
         if (s.tag === "func") {
-            defineNewSymbol(envList, s.name, {tag: "func", type: [s.params.map(p => p.type), s.ret]});
+            env.defineNewSymbol(s.name, { tag: "func", type: [s.params.map(p => p.type), s.ret] });
+            // defineNewSymbol(envList, s.name, {tag: "func", type: [s.params.map(p => p.type), s.ret]});
         }
         else if (s.tag === "var") {
-            defineNewSymbol(envList, s.var.name, {tag: "var", type: s.var.type});
+            env.defineNewSymbol(s.var.name, { tag: "var", type: s.var.type });
+            // defineNewSymbol(envList, s.var.name, {tag: "var", type: s.var.type});
         }
         else if (s.tag === "class") {
             const methods = new Map<string, [Type[], Type]>();
@@ -503,12 +607,13 @@ export function tcProgram(p : Stmt<any>[]) : Stmt<Type>[] {
             s.fields.forEach(m => {
                 fields.set(m.var.name, m.var.type)
             })
-            defineNewSymbol(envList, s.name, { tag: "class", type: { super: s.super, methods, fields }});
-            }
+            env.defineNewSymbol(s.name, { tag: "class", type: { super: s.super, methods, fields } });
+            // defineNewSymbol(envList, s.name, { tag: "class", type: { super: s.super, methods, fields }});
+        }
     })
 
     return p.map(s => {
-        const res = tcStmt(s, envList, {tag: "none"});
+        const res = tcStmt(s, env, {tag: "none"});
         return res;
     });
 }

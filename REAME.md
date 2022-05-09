@@ -1,3 +1,1 @@
-# TODO:
-[] local variables in if/else
-[] is return statement in function
+# CSE 231 Compiler - Chocopy

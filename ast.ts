@@ -6,8 +6,13 @@ export const INT = { tag: "int"}
 export const BOOL = {tag: "bool"} 
 export const NONE = {tag: "none"} 
 
+export const keywords = new Set<string>([
+    "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
+    "global", "nonlocal", "string", "list", "import", "try", "except"
+]);
+
 export type Type = 
-    { tag: "int"} 
+    { tag: "int" } 
     | {tag: "bool"} 
     | {tag: "none"} 
     | {tag: "class", name: string} 
@@ -35,7 +40,8 @@ export function typeStr(t: Type): string {
 }
 
 export function isTypeEqual(lhs: Type, rhs: Type): boolean {
-    if (lhs.tag !== rhs.tag) return false;
+    if (rhs === null) return lhs === null;
+    else if (lhs.tag !== rhs.tag) return false;
     else if (lhs.tag === "int" || lhs.tag === "bool" || lhs.tag === "none") return true;
     else if (lhs.tag === "class" && rhs.tag === "class") return lhs.name === rhs.name;
     else if (lhs.tag === "callable" && rhs.tag === "callable") {
@@ -44,17 +50,41 @@ export function isTypeEqual(lhs: Type, rhs: Type): boolean {
             if (!isTypeEqual(t, rhs.params[i])) return false;
         })
         return isTypeEqual(lhs.ret, rhs.ret);
+    } 
+    else if (lhs.tag === "list" && rhs.tag === "list") {
+        return isTypeEqual(lhs.type, rhs.type)
     } else {
         throw new TypeError("TYPE ERROR: Do not support this type")
     }
 }
 
 export function isAssignable(lhs: Type, rhs: Type): boolean {
-    return isTypeEqual(lhs, rhs) || (isClass(lhs) && isTypeEqual(rhs, {tag: "none"}))
+    return isTypeEqual(lhs, rhs) || 
+    isSubType(lhs, rhs);
+}
+
+export function isSubType(lhs: Type, rhs: Type) {
+    if (isClass(lhs)) {
+        return isTypeEqual(rhs, { tag: "none" });
+    } else if (lhs.tag === "list") {
+        if (rhs.tag === "list")
+            return isEmptyList(rhs) || isAssignable(lhs.type, rhs.type);
+        else
+            return isTypeEqual(rhs, { tag: "none" });
+    }
+    return false;
 }
 
 export function isClass(a: Type) {
     return a.tag === "class"
+}
+
+export function isObject(a: Type) {
+    return a.tag === "class" || a.tag === "list"
+}
+
+export function isEmptyList(a: Type) {
+    return a.tag === "list" && a.type === null
 }
 
 export type TypeDef = {name: string, type: Type}
@@ -70,14 +100,17 @@ export type PassStmt<A> = { a?: A, tag: "pass"}
 export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
+export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
+export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type NameExpr<A> = { a?: A, tag: "name", name: string}
 export type UnaryExpr<A> = { a?: A, tag: "unary", op: UniOp, expr: Expr<A>}
 export type BinaryExpr<A> = { a?: A, tag: "binary", op: BinOp, lhs: Expr<A>, rhs: Expr<A>}
 export type CallExpr<A> = { a?: A, tag: "call", name: string, args: Expr<A>[]}
 export type GetFieldExpr<A> = { a?: A, tag: "getfield", obj: Expr<A>, name: string}
 export type MethodExpr<A> = { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
+export type IndexExpr<A> = { a?: A, tag: "index", obj: Expr<A>, idx: Expr<A> }
 
 export type Stmt<A> =
     | FuncStmt<A>
@@ -89,6 +122,7 @@ export type Stmt<A> =
     | ReturnStmt<A>
     | ExprStmt<A>
     | ClassStmt<A>
+    | ScopeStmt<A>
 
 export type Expr<A> =
     | LiteralExpr<A>
@@ -98,3 +132,5 @@ export type Expr<A> =
     | CallExpr<A>
     | GetFieldExpr<A>
     | MethodExpr<A>
+    | ArrayExpr<A>
+    | IndexExpr<A>
