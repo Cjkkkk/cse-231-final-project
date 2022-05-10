@@ -59,7 +59,7 @@ describe("PA4 tests for list", () => {
     a: [int] = None
     a = []
     print(len(a))`, [`0`]);
-    4.3
+    // 4.3
     assertFail("list-len-none", `
     a: [int] = None
     print(len(a))`);
@@ -82,14 +82,19 @@ describe("PA4 tests for list", () => {
         print(True)
     else:
         print(False))`, [`True`]);
-    6
+    assertPrint("list-param-with-idx-inside-functions", `
+    def get_index(items:[int], n:int) -> int:
+        return items[n]
+
+    print(get_index([4, 8, 15, 16, 23], 3))`, [`16`]);
+    // 6
     assertTC("list-ret-type", `
     def gen() -> [int]:
         return [1,2,3]
     a: [int] = None
     a = gen()
     a`, LIST(NUM));
-    7
+    // 7
     assertTC("nested-list", `
     a: [[int]] = None
     a = [[1,2,3], [4,5,6]]
