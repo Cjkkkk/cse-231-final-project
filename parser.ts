@@ -1,7 +1,7 @@
 import { assert } from "chai";
 import { parser } from "@lezer/python";
 import { TreeCursor } from "@lezer/common";
-import { BinOp, Expr, Stmt, UniOp, Type, TypeDef, CondBody, FuncStmt, VarStmt, NameExpr} from "./ast";
+import { BinOp, Expr, Stmt, UniOp, Type, TypeDef, CondBody, FuncStmt, VarStmt, NameExpr, LValue, GetFieldExpr} from "./ast";
 import { ParseError } from "./error";
 import { PassThrough } from "stream";
 
@@ -132,6 +132,52 @@ export function traverseParameters(c : TreeCursor, s : string) : Array<TypeDef> 
     c.parent();       // Pop to ParamList
     assert(c.node.type.name === originName);
     return parameters;
+}
+
+
+export function traverseLValue(t: TreeCursor, s: string): LValue<any> {
+    switch (t.type.name) {
+        case "VariableName":
+            return { tag: "name", name: s.substring(t.from, t.to) };
+        case "MemberExpression":
+            return traverseMemberExpr(t, s);
+        default:
+            throw new ParseError("Could not parse expr at " +
+                t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+    }
+}
+
+export function traverseMemberExpr(c: TreeCursor, s: string): LValue<any> {
+        c.firstChild();
+        const obj = traverseExpr(c, s);
+        c.nextSibling(); // . or [ 
+        let t = c;
+        if (t.type.name === ".") {
+            c.nextSibling();
+            const name = s.substring(c.from, c.to);
+            c.parent();
+            return {
+                tag: "getfield",
+                obj,
+                name
+            }
+        }
+        else if (t.type.name === "[") {
+            c.nextSibling();
+            const idx = traverseExpr(c, s);
+            c.nextSibling();
+            t = c;
+            if (t.type.name === "]") {
+                c.parent();
+                return {
+                    tag: "index",
+                    obj,
+                    idx
+                }
+            }
+        }
+        c.parent();
+        throw new ParseError("Could not parse expr at " + c.type.name + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
 }
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr<any> {
@@ -267,40 +313,10 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<any> {
                 throw new Error("Internal error: should not be in here")
             }
         }
-
         case "MemberExpression":
-            c.firstChild();
-            const obj = traverseExpr(c, s);
-            c.nextSibling(); // . or [ 
-            let t = c;
-            if (t.type.name === ".") {
-                c.nextSibling();
-                const name = s.substring(c.from, c.to);
-                c.parent();
-                assert(c.node.type.name === originName);
-                return {
-                    tag: "getfield",
-                    obj,
-                    name
-                }
-            }
-            else if (t.type.name === "[") {
-                c.nextSibling();
-                const idx = traverseExpr(c, s);
-                c.nextSibling();
-                t = c;
-                if (t.type.name === "]") {
-                    c.parent();
-                    return {
-                        tag: "index", 
-                        obj,
-                        idx
-                    }
-                }
-            } 
-            c.parent();
-            throw new ParseError("Could not parse expr at " + c.type.name + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
-
+            const expr = traverseMemberExpr(c, s);
+            assert(c.node.type.name === originName);
+            return expr
         case "ArrayExpression":
             const eles = [];
             c.firstChild();
@@ -385,7 +401,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
         }
         case "AssignStatement": {
             c.firstChild(); // go to name
-            const name = traverseExpr(c, s);
+            const name = traverseLValue(c, s);
             c.nextSibling(); // go to equals or typedef
             var type : Type = undefined;
             if (c.type.name === "TypeDef") {

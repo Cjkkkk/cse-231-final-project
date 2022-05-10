@@ -96,7 +96,7 @@ export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}
 export type FuncStmt<A> = { a?: A, tag: "func", name: string, params: TypeDef[], ret: Type, body: Stmt<A>[]}
 export type VarStmt<A> = { a?: A, tag: "var", var: TypeDef, value: Expr<A>}
 export type IfStmt<A> = { a?: A, tag: "if", if: CondBody<A>, elif: CondBody<A>[], else: Stmt<A>[]}
-export type AssignStmt<A> = { a?: A, tag: "assign", name: Expr<A>, value: Expr<A>}
+export type AssignStmt<A> = { a?: A, tag: "assign", name: LValue<A>, value: Expr<A>}
 export type WhileStatement<A> = { a?: A, tag: "while", while: CondBody<A>}
 export type PassStmt<A> = { a?: A, tag: "pass"}
 export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
@@ -114,6 +114,7 @@ export type GetFieldExpr<A> = { a?: A, tag: "getfield", obj: Expr<A>, name: stri
 export type MethodExpr<A> = { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
 export type ArrayExpr<A> = { a?: A, tag: "array", eles: Expr<A>[] }
 export type IndexExpr<A> = { a?: A, tag: "index", obj: Expr<A>, idx: Expr<A> }
+export type LValue<A> = NameExpr<A> | GetFieldExpr<A> | IndexExpr<A>
 
 export type Stmt<A> =
     | FuncStmt<A>

@@ -1,4 +1,4 @@
-import { assertPrint, assertTCFail, assertTC, assertFail } from "./asserts.test";
+import { assertPrint, assertTCFail, assertTC, assertFail, assertFailContain } from "./asserts.test";
 import { NUM, BOOL, NONE, CLASS } from "./helpers.test"
 
 describe("PA3 hidden tests", () => {
@@ -321,5 +321,11 @@ class C(object):
 c : C = None
 c = C()
 print(c.f())`, ['None']);
+
+      assertFailContain("left value", `
+def f()->int:
+      return 1
+f() = 1
+`,  `parse`)
 
 });

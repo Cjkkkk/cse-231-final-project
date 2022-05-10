@@ -1,6 +1,6 @@
 
 import { assert } from "chai";
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass, LValue, NameExpr } from "./ast";
 import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type}
@@ -469,12 +469,16 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
         case "assign": {
             const rhs = tcExpr(s.value, envList);
             const lhs = tcExpr(s.name, envList);
+            
             if (lhs.tag === "name") {
                 const [found, t] = envList.lookUpSymbol(lhs.name);
                 if (!found) {
                     throw new ReferenceError(`Reference error: ${lhs.name} is not defined`);
                 }
             } 
+            else if (lhs.tag !== "getfield" && lhs.tag !== "index") {
+                throw new TypeError(`Wrong assignment`);
+            }
             if( !isAssignable(lhs.a, rhs.a) && !isSubClass(rhs.a, lhs.a, envList)) {
                 throw new TypeError(`Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
             }
