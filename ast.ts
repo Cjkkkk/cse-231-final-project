@@ -41,6 +41,10 @@ export function typeStr(t: Type): string {
     }
 }
 
+export function buildClassType(name: string): {tag: "class", name: string} {
+    return {tag: "class", name: name};
+}
+
 export function isTypeEqual(lhs: Type, rhs: Type): boolean {
     if (rhs === null) return lhs === null;
     else if (lhs.tag !== rhs.tag) return false;

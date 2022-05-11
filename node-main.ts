@@ -39,6 +39,23 @@ const importObject = {
             return arg;
         }
     },
+    check: {
+        check_init: (arg: any) => {
+            if (arg === 0) {
+                throw new Error("RUNTIME ERROR: object not intialized");
+            }
+            return arg;
+        },
+        check_index: (length:any, arg: any) => {
+            if (arg >= length || arg < 0) {
+                throw new Error("RUNTIME ERROR: Index out of bounds");
+            }
+            return arg;
+        },
+        check_if_none: () => {
+            return 0;
+        }
+    },
     output: ""
 };
 

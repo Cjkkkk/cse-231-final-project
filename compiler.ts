@@ -1,8 +1,9 @@
 import wabt from 'wabt';
 import { Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass, FuncStmt, VarStmt} from './ast';
-import {parse} from './parser';
-import {tcProgram } from './tc';
-import {functionLifting} from "./functionLift"
+import { parse } from './parser';
+import { tcProgram } from './tc';
+import { functionLifting } from "./functionLift"
+import { typeStr } from './ast';
 
 
 type Env = Set<string>;
@@ -106,7 +107,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
             var opstmts = binOpStmts(expr.op);
             // DSC TODO: add list concat
-            if (expr.lhs.a.tag === "list" && expr.lhs.a.tag === "list" && expr.op === BinOp.Plus) {
+            if (expr.lhs.a.tag === "list" && expr.rhs.a.tag === "list" && expr.op === BinOp.Plus) {
                 opstmts = [`call $concat_list`];
             }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
@@ -567,14 +568,13 @@ export function compile(source : string) : string {
     ast = tcProgram(ast);
 
     const locals = new Set<string>();
-    const funs: FuncStmt<any>[] = [];
 
     // function lifting
-    const newStmts = functionLifting(ast, funs); 
-    const [vars, classes, stmts] = varsClassesStmts(newStmts);
+    const [newStmts, funs, refCls] = functionLifting(ast); 
+    const [vars, cls, stmts] = varsClassesStmts(newStmts);
 
     // build inheritance graph
-    const root = buildGraph(classes as ClassStmt<any>[]);
+    const root = buildGraph(refCls.concat(cls as ClassStmt<any>[]) as ClassStmt<any>[]);
 
     // add field to subclass
     addFieldFromSuperClass(root);
@@ -587,7 +587,7 @@ export function compile(source : string) : string {
     // codegen
     const builtinCode = addIndent(builtinGen(), 1).join("\n");
     const tableCode = addIndent(codeGenTable(root, mcm), 1).join("\n");
-    const classCode = classes.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
+    const classCode = refCls.concat(cls as ClassStmt<any>[]).map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
     const funsCode = funs.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f => f.join("\n")).join("\n\n");
     const varDeclCode = addIndent(vars.map(v => `(global $${v} (mut i32) (i32.const 0))`), 1).join("\n");
     const allStmts = stmts.map(s => codeGenStmt(s, locals, fcm, mcm)).flat();

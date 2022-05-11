@@ -49,4 +49,41 @@ describe("PA4 tests for nested function", () => {
         return g(4)
     print(f())
     `, [`5`]);
+
+    assertPrint("call a function writing to a non local variable", `
+    def f(a: int) -> int:
+        def g(b: int) -> int:
+            nonlocal a
+            a = a + 3
+            return a + b
+        return g(2) + g(2)
+    print(f(1))
+    `, [`15`]);
+
+
+    assertPrint("call a deep nested function writing to a non local variable", `
+    def f(a: int) -> int:
+        def g(b: int) -> int:
+            def h(c: int) -> int:
+                nonlocal b
+                b = b + 3
+                return a + b
+            return h(3) + h(3)
+        return g(2)
+    print(f(1))
+    `, [`15`]);
+
+
+    assertPrint("call a deep nested function writing to a non local variable", `
+    b: int = 2
+    def f(a: int) -> int:
+        def g(b: int) -> int:
+            def h(c: int) -> int:
+                global b
+                b = b + 3
+                return a + b
+            return h(3) + h(3)
+        return g(2)
+    print(f(1))
+    `, [`15`]);
 });

@@ -3,7 +3,6 @@ import { parser } from "@lezer/python";
 import { TreeCursor } from "@lezer/common";
 import { BinOp, Expr, Stmt, UniOp, Type, TypeDef, CondBody, FuncStmt, VarStmt, NameExpr, LValue, GetFieldExpr} from "./ast";
 import { ParseError } from "./error";
-import { PassThrough } from "stream";
 
 
 export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<any>> {

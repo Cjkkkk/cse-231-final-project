@@ -4,7 +4,7 @@ import { NUM, NONE, CLASS, LIST } from "./helpers.test"
 describe("PA4 tests for for-loops", () => {
     // 1
     assertPrint("for-loop", `
-x:int = 0
+x: int = 0
 i: int = 0
 for i in [1,2,3,4,5,6,7,8,9,10]:
     x = x + 1
