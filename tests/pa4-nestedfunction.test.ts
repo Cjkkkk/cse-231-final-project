@@ -74,7 +74,7 @@ describe("PA4 tests for nested function", () => {
     `, [`15`]);
 
 
-    assertPrint("call a deep nested function writing to a non local variable", `
+    assertPrint("call a deep nested function writing to a global variable", `
     b: int = 2
     def f(a: int) -> int:
         def g(b: int) -> int:
