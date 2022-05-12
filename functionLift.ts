@@ -2,9 +2,8 @@ import { Stmt, Expr, Type, FuncStmt, VarStmt, ClassStmt, typeStr, Literal, build
 import { SearchScope, Scope, Env } from "./tc";
 
 type Func = {name: string};
-type Var = {name: string, type: Type};
-type VarWithPro = {var: Var, isRead: boolean};
-type VarMap = Map<string, VarWithPro>;
+type Var = {name: string, type: Type, isRead: boolean};
+type VarMap = Map<string, Var>;
 type ClosureMap = Map<string, VarMap>;
 type FreeVarMap = Map<string, VarMap>;
 
@@ -120,7 +119,7 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
             if (found) {
                 expr.name = symbol.name;
                 closureMap.get(symbol.name).forEach((v) => {
-                    expr.args.push({tag: "name", name: v.var.name})
+                    expr.args.push({tag: "name", name: v.name})
                 });
             }
             break;
@@ -139,7 +138,7 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
                 const currentFreeVar = freeVarMap.get(currentFuncName);
                 if (currentFreeVar.has(expr.name) && !currentFreeVar.get(expr.name).isRead) {
                     // a -> a.x
-                    const currentType = currentFreeVar.get(expr.name).var.type;
+                    const currentType = currentFreeVar.get(expr.name).type;
                     return {a: currentType, tag: "getfield", obj: {...expr, a: buildClassType(typeStr(currentType) + "$ref")}, name: "x"};
                 }
             } 
@@ -148,7 +147,7 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
                 const currentClosure = closureMap.get(currentFuncName);
                 if (currentClosure.has(expr.name) && !currentClosure.get(expr.name).isRead) {
                     // a -> a.x
-                    const currentType = currentClosure.get(expr.name).var.type;
+                    const currentType = currentClosure.get(expr.name).type;
                     return {a: currentType, tag: "getfield", obj: {...expr, a: buildClassType(typeStr(currentType) + "$ref")}, name: "x"};
                 }
             }
@@ -249,9 +248,9 @@ function rewriteStmts(stmts: Stmt<any>[], currentPrefix: string, funcEnv: Env<Fu
                     const currentClosure = closureMap.get(s.name);
                     currentClosure.forEach(v => {
                         if (!v.isRead) {
-                            s.params.push({name: v.var.name, type: buildClassType(typeStr(v.var.type) + "$ref")});
+                            s.params.push({name: v.name, type: buildClassType(typeStr(v.type) + "$ref")});
                         } else {
-                            s.params.push({name: v.var.name, type: v.var.type});
+                            s.params.push({name: v.name, type: v.type});
                         }
                     });
 
@@ -340,13 +339,13 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
 
                 // define var
                 s.params.forEach((p) => {
-                    varEnv.defineNewSymbol(p.name, {name: p.name, type: p.type});
+                    varEnv.defineNewSymbol(p.name, {name: p.name, type: p.type, isRead: true});
                 });
 
                 const funs: FuncStmt<any>[] = [];
                 s.body.forEach((p) => {
                     if (p.tag === "var") {
-                        varEnv.defineNewSymbol(p.var.name, {name: p.var.name, type: p.var.type});
+                        varEnv.defineNewSymbol(p.var.name, {name: p.var.name, type: p.var.type, isRead: true});
                     } 
                     // else if (p.tag === "scope") {
                     //     const [_, symbol] = varEnv.lookUpSymbol(p.name, p.global? SearchScope.GLOBAL: SearchScope.NONLOCAL);
@@ -361,8 +360,8 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                 ComputeClosure(s.body, currentPrefix + s.name + "$", varEnv, closureMap, freeVarMap);
 
 
-                const closure: VarMap = new Map<string, VarWithPro>();
-                const freeVar: VarMap = new Map<string, VarWithPro>();
+                const closure: VarMap = new Map<string, Var>();
+                const freeVar: VarMap = new Map<string, Var>();
                 // a mapping from variable name to whether it is being written
                 const closureNames: Map<string, boolean> = new Map<string, boolean>();
                 const freeVarNames: Map<string, boolean> = new Map<string, boolean>();
@@ -373,18 +372,18 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                 funs.forEach((f) => {
                     let innerFuncClosure = closureMap.get(currentPrefix + s.name + "$" + f.name);
                     innerFuncClosure.forEach(v => {
-                        if (closureNames.has(v.var.name)) {
-                            const isRead = closureNames.get(v.var.name);
-                            closureNames.set(v.var.name, isRead && v.isRead);
+                        if (closureNames.has(v.name)) {
+                            const isRead = closureNames.get(v.name);
+                            closureNames.set(v.name, isRead && v.isRead);
                         } else {
-                            closureNames.set(v.var.name, v.isRead);
+                            closureNames.set(v.name, v.isRead);
                         }
 
-                        if (freeVarNames.has(v.var.name)) {
-                            const isRead = freeVarNames.get(v.var.name);
-                            freeVarNames.set(v.var.name, isRead && v.isRead);
+                        if (freeVarNames.has(v.name)) {
+                            const isRead = freeVarNames.get(v.name);
+                            freeVarNames.set(v.name, isRead && v.isRead);
                         } else {
-                            freeVarNames.set(v.var.name, v.isRead);
+                            freeVarNames.set(v.name, v.isRead);
                         }
 
                     })
@@ -396,7 +395,8 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                     if (!found) {
                         [found, symbol] = varEnv.lookUpSymbol(name, SearchScope.NONLOCAL);
                         if (found) {
-                            closure.set(name, {var: symbol, isRead});
+                            symbol.isRead = isRead;
+                            closure.set(name, symbol);
                         }
                     }
                 })
@@ -404,7 +404,8 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                 freeVarNames.forEach((isRead, name) => {
                     let [found, symbol] = varEnv.lookUpSymbol(name, SearchScope.LOCAL);
                     if (found) {
-                        freeVar.set(name, {var: symbol, isRead});
+                        symbol.isRead = isRead;
+                        freeVar.set(name, symbol);
                     }
                 })
                 // TODO: for every var with write, wrap it in ref type
@@ -443,7 +444,7 @@ export function functionLifting(stmts: Stmt<any>[]): [Stmt<any>[], FuncStmt<any>
     // define global variables
     stmts.forEach((p) => {
         if (p.tag === "var") {
-            varEnv.defineNewSymbol(p.var.name, {name: p.var.name, type: p.var.type});
+            varEnv.defineNewSymbol(p.var.name, {name: p.var.name, type: p.var.type, isRead: true});
         }
     })
 
@@ -451,7 +452,9 @@ export function functionLifting(stmts: Stmt<any>[]): [Stmt<any>[], FuncStmt<any>
     let cls: ClassStmt<any>[] = [];
     ComputeClosure(stmts, "", varEnv, closureMap, freeVarMap);
     
+    // console.log("closure:")
     // closureMap.forEach((v, k) => console.log(k, v));
+    // console.log("freevar:")
     // freeVarMap.forEach((v, k) => console.log(k, v));
     let newStmts = rewriteStmts(stmts, "", funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
     return [newStmts, funs, cls];
