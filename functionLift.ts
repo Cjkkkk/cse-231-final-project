@@ -101,7 +101,6 @@ function getStmtsVarName(stmts: Stmt<any>[], names: Map<string, boolean>) {
             } case "func": {
                 break;
             } case "scope": {
-                // DSC TODO 
                 break;
             } default: {
                 throw new Error(`Unsupported stmt type:`);
@@ -111,10 +110,10 @@ function getStmtsVarName(stmts: Stmt<any>[], names: Map<string, boolean>) {
 }
 
 // rewrite 
-function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap): Expr<any> {
+function rewriteExpr(expr: Expr<any>, currentFuncName: string, funcEnv: Env<Func>, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap): Expr<any> {
     switch(expr.tag) {
         case "call": {
-            expr.args = expr.args.map((v) => rewriteExpr(v, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap));
+            expr.args = expr.args.map((v) => rewriteExpr(v, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap));
             const [found, symbol] = funcEnv.lookUpSymbol(expr.name, SearchScope.ALL);
             if (found) {
                 expr.name = symbol.name;
@@ -125,14 +124,13 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
             break;
         }
         case "binary": {
-            expr.lhs = rewriteExpr(expr.lhs, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
-            expr.rhs = rewriteExpr(expr.rhs, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.lhs = rewriteExpr(expr.lhs, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.rhs = rewriteExpr(expr.rhs, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
             break;
         } 
         case "name": {
             // TODO:
-            if(isClass(expr.a) && expr.a.name.endsWith("$ref")) break;
-            const currentFuncName = currentPrefix.slice(0, -1);
+            // if(isClass(expr.a) && expr.a.name.endsWith("$ref")) break;
             if ( freeVarMap.has(currentFuncName) ) {
                 // not a global scope
                 const currentFreeVar = freeVarMap.get(currentFuncName);
@@ -157,25 +155,25 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
             break;
         }
         case "unary": {
-            expr.expr = rewriteExpr(expr.expr, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.expr = rewriteExpr(expr.expr, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
             break;
         } 
         case "getfield": {
-            expr.obj = rewriteExpr(expr.obj, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.obj = rewriteExpr(expr.obj, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
             break;
         }
         case "method": {
-            expr.obj = rewriteExpr(expr.obj, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
-            expr.args = expr.args.map((v) => rewriteExpr(v, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap));
+            expr.obj = rewriteExpr(expr.obj, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.args = expr.args.map((v) => rewriteExpr(v, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap));
             break;
         } 
         case "array": {
-            expr.eles = expr.eles.map(e => rewriteExpr(e, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap));
+            expr.eles = expr.eles.map(e => rewriteExpr(e, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap));
             break;
         }
         case "index": {
-            expr.obj = rewriteExpr(expr.obj, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
-            expr.idx = rewriteExpr(expr.idx, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.obj = rewriteExpr(expr.obj, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+            expr.idx = rewriteExpr(expr.idx, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
             break;
         }
         default: {
@@ -184,6 +182,8 @@ function rewriteExpr(expr: Expr<any>, currentPrefix: string, funcEnv: Env<Func>,
     }
     return expr;
 }
+
+
 function constructInit(type: Type): Literal {
     if (type.tag === "int") return 0;
     else if (type.tag === "bool") return true;
@@ -215,15 +215,21 @@ function constructRefClass(type: Type): ClassStmt<any> {
 }
 
 
-function rewriteStmts(stmts: Stmt<any>[], currentPrefix: string, funcEnv: Env<Func>, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap, funs: FuncStmt<any>[], cls: ClassStmt<any>[]): Stmt<any>[] {
+function rewriteStmts(stmts: Stmt<any>[], currentFuncName: string, funcEnv: Env<Func>, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap, funs: FuncStmt<any>[], cls: ClassStmt<any>[]): Stmt<any>[] {
     let newStmts: Stmt<any>[] = [];
     stmts.forEach((s) => {
         switch (s.tag) {
             case "func": {
                 funs.push(s);
-                funcEnv.defineNewSymbol(s.name, {name: currentPrefix + s.name});
-                s.name = currentPrefix + s.name;
+                funcEnv.defineNewSymbol(s.name, {name: computeCurrentFuncName(currentFuncName, s.name)});
+                s.name = computeCurrentFuncName(currentFuncName, s.name);
                 funcEnv.addScope();
+
+
+                // add args to func call
+                s.body = rewriteStmts(s.body, s.name, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+
+
                 // wrap ref around freeVars definition
                 const newBody: Stmt<any>[] = []
                 if (freeVarMap.has(s.name)) {
@@ -275,43 +281,41 @@ function rewriteStmts(stmts: Stmt<any>[], currentPrefix: string, funcEnv: Env<Fu
 
 
                 s.body = newBody;
-                // add args to func call
-                s.body = rewriteStmts(s.body, s.name + "$", funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
                 // exit env
                 funcEnv.removeScope();
                 break;
             } case  "class": {
                 // enter new env
                 funcEnv.addScope();
-                s.methods.forEach((m) => m.body = rewriteStmts(m.body, currentPrefix + s.name + "$" + m.name + "$", funcEnv, varEnv, closureMap, freeVarMap, funs, cls));
+                s.methods.forEach((m) => m.body = rewriteStmts(m.body, computeCurrentFuncName(computeCurrentFuncName(currentFuncName, s.name), m.name), funcEnv, varEnv, closureMap, freeVarMap, funs, cls));
                 // exit env
                 funcEnv.removeScope();
                 break;
             } case "assign": {
-                s.name = rewriteExpr(s.name, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap) as LValue<any>;
-                s.value = rewriteExpr(s.value, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+                s.name = rewriteExpr(s.name, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap) as LValue<any>;
+                s.value = rewriteExpr(s.value, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
                 break;
             } case "expr": {
-                s.expr = rewriteExpr(s.expr, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+                s.expr = rewriteExpr(s.expr, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
                 break;
             } case "if": {
-                s.if.cond = rewriteExpr(s.if.cond, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
-                s.if.body = rewriteStmts(s.if.body, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+                s.if.cond = rewriteExpr(s.if.cond, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+                s.if.body = rewriteStmts(s.if.body, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
                 s.elif = s.elif.map((e) => {
-                    e.cond = rewriteExpr(e.cond, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
-                    e.body = rewriteStmts(e.body, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+                    e.cond = rewriteExpr(e.cond, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+                    e.body = rewriteStmts(e.body, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
                     return e;
                 });
-                s.else = rewriteStmts(s.else, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+                s.else = rewriteStmts(s.else, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
                 break;
             } case "while": {
-                s.while.body = rewriteStmts(s.while.body, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
-                s.while.cond = rewriteExpr(s.while.cond, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+                s.while.body = rewriteStmts(s.while.body, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+                s.while.cond = rewriteExpr(s.while.cond, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
                 break;
             } case "pass": {
                 break;
             } case "return": {
-                s.value = rewriteExpr(s.value, currentPrefix, funcEnv, varEnv, closureMap, freeVarMap);
+                s.value = rewriteExpr(s.value, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
                 break;
             } case "var": {
                 break;
@@ -329,8 +333,15 @@ function rewriteStmts(stmts: Stmt<any>[], currentPrefix: string, funcEnv: Env<Fu
     return newStmts;
 }
 
+function computeCurrentFuncName(prev: string, name: string) {
+    if (prev.length === 0) return name;
+    else {
+        return prev + "$" + name;
+    }
+}
 
-function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap) {
+
+function computeClosureAndFreeVars(stmts: Stmt<any>[], currentFuncName: string, varEnv: Env<Var>, closureMap: ClosureMap, freeVarMap: FreeVarMap) {
     stmts.forEach((s) => {
         switch (s.tag) {
             case "func": {
@@ -357,7 +368,7 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                 })
 
                 // compute closure
-                ComputeClosure(s.body, currentPrefix + s.name + "$", varEnv, closureMap, freeVarMap);
+                computeClosureAndFreeVars(s.body, computeCurrentFuncName(currentFuncName, s.name), varEnv, closureMap, freeVarMap);
 
 
                 const closure: VarMap = new Map<string, Var>();
@@ -370,7 +381,7 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
 
                 // merge closure here
                 funs.forEach((f) => {
-                    let innerFuncClosure = closureMap.get(currentPrefix + s.name + "$" + f.name);
+                    let innerFuncClosure = closureMap.get(computeCurrentFuncName(computeCurrentFuncName(currentFuncName, s.name), f.name));
                     innerFuncClosure.forEach(v => {
                         if (closureNames.has(v.name)) {
                             const isRead = closureNames.get(v.name);
@@ -408,27 +419,26 @@ function ComputeClosure(stmts: Stmt<any>[], currentPrefix: string, varEnv: Env<V
                         freeVar.set(name, symbol);
                     }
                 })
-                // TODO: for every var with write, wrap it in ref type
-
-                closureMap.set(currentPrefix + s.name, closure);
-                freeVarMap.set(currentPrefix + s.name, freeVar);
+                // for every var with write, wrap it in ref type
+                closureMap.set(computeCurrentFuncName(currentFuncName, s.name), closure);
+                freeVarMap.set(computeCurrentFuncName(currentFuncName, s.name), freeVar);
 
                 // exit env
                 varEnv.removeScope();
                 break;
             } case  "class": {
-                s.methods.forEach((m) => ComputeClosure(m.body, currentPrefix + s.name + "$" + m.name + "$", varEnv, closureMap, freeVarMap));
+                s.methods.forEach((m) => computeClosureAndFreeVars(m.body, computeCurrentFuncName(computeCurrentFuncName(currentFuncName, s.name), m.name), varEnv, closureMap, freeVarMap));
                 break;
             } case "if": {
-                ComputeClosure(s.if.body, currentPrefix, varEnv, closureMap, freeVarMap);
+                computeClosureAndFreeVars(s.if.body, currentFuncName, varEnv, closureMap, freeVarMap);
                 s.elif = s.elif.map((e) => {
-                    ComputeClosure(e.body, currentPrefix, varEnv, closureMap, freeVarMap);
+                    computeClosureAndFreeVars(e.body, currentFuncName, varEnv, closureMap, freeVarMap);
                     return e;
                 });
-                ComputeClosure(s.else, currentPrefix, varEnv, closureMap, freeVarMap);
+                computeClosureAndFreeVars(s.else, currentFuncName, varEnv, closureMap, freeVarMap);
                 break;
             } case "while": {
-                ComputeClosure(s.while.body, currentPrefix, varEnv, closureMap, freeVarMap);
+                computeClosureAndFreeVars(s.while.body, currentFuncName, varEnv, closureMap, freeVarMap);
                 break;
             }
         }
@@ -450,7 +460,7 @@ export function functionLifting(stmts: Stmt<any>[]): [Stmt<any>[], FuncStmt<any>
 
     let funs: FuncStmt<any>[] = [];
     let cls: ClassStmt<any>[] = [];
-    ComputeClosure(stmts, "", varEnv, closureMap, freeVarMap);
+    computeClosureAndFreeVars(stmts, "", varEnv, closureMap, freeVarMap);
     
     // console.log("closure:")
     // closureMap.forEach((v, k) => console.log(k, v));
