@@ -37,6 +37,12 @@ const importObject = {
             importObject.output += "None";
             importObject.output += "\n";
             return arg;
+        },
+        print_char: (arg: any, lf: any) => {
+            console.log(String.fromCharCode(arg));
+            importObject.output += String.fromCharCode(arg);
+            if (lf === 1) importObject.output += "\n";
+            return arg;
         }
     },
     check: {

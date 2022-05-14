@@ -64,6 +64,7 @@ type Type =
   | "int"
   | "bool"
   | "none"
+  | "string"
   | { tag: "object", class: string }
   | { tag: "list", type: Type }
   | { tag: "string" }
@@ -71,8 +72,9 @@ type Type =
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";
 export const NONE : Type = "none";
+export const STRING: Type = "string";
 export function CLASS(name : string) : Type { 
-    return { tag: "object", class: name }
+  return { tag: "object", class: name }
 };
 
 export function LIST(typ: any ): Type {

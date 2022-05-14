@@ -22,6 +22,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 display("None");
                 return arg;
             },
+            print_char: (arg: any, lf: any) => {
+                const output = document.getElementById("output");
+                output.textContent += String.fromCharCode(arg);
+                if (lf) output.textContent += "\n";
+                // return arg;
+            }
         },
         check: {
             check_init: (arg: any) => {

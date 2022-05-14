@@ -117,7 +117,9 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                 return { ...e, a: {tag: "bool"}}; 
             } else if (e.value === false) {
                 return { ...e, a: {tag: "bool"}};
-            } else {
+            } else if (typeof(e.value) === 'string') {
+                return { ...e, a: {tag: "string"}};
+            } else{
                 return { ...e, a: {tag: "int"}};
             }
         case "binary": {
@@ -131,6 +133,12 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                         }
                         return { ...e, a: lhs.a, lhs, rhs };
                     }
+                    if (lhs.a.tag === "string" || rhs.a.tag === "string") {
+                        if (!isTypeEqual(lhs.a, rhs.a)) {
+                            throw new TypeError(`TYPE ERROR: Cannot apply operator \`+\` on types \`${typeStr(lhs.a)}\` and \`${typeStr(rhs.a)}\``);
+                        }
+                        return { ...e, a: lhs.a, lhs, rhs };
+                    }
                 case BinOp.Minus:
                 case BinOp.Mul:
                 case BinOp.Div: 
@@ -141,8 +149,8 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                     return { ...e, a: {tag: "int"}, lhs, rhs};
                 case BinOp.Equal:
                 case BinOp.Unequal:
-                    if (!isTypeEqual(lhs.a, rhs.a) || (lhs.a.tag !== "int" && lhs.a.tag !== "bool")) {
-                        throw new TypeError(`TYPE ERROR: Expected lhs and rhs to be same type of INT or BOOL but got type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`)
+                    if (!isTypeEqual(lhs.a, rhs.a) || (lhs.a.tag !== "int" && lhs.a.tag !== "bool" && lhs.a.tag !== "string")) {
+                        throw new TypeError(`TYPE ERROR: Expected lhs and rhs to be same type of INT or BOOL or STRING but got type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`)
                     }
                     return { ...e, a: {tag: "bool"}, lhs, rhs};
                 case BinOp.Gt: 
@@ -196,7 +204,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             else if (e.name === "len") {
                 if (e.args.length !== 1) { throw new Error("len expects a single argument"); }
                 const newArgs = tcExpr(e.args[0], envList);
-                if (newArgs.a.tag !== "list") {
+                if (newArgs.a.tag !== "list" && newArgs.a.tag !== "string") {
                     // DSC TODO: Chocopy do not type check this argument?
                     throw new TypeError(`Cannot call len on type ${typeStr(newArgs.a)}`);
                 }
@@ -357,12 +365,15 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
         } 
         case "index": {
             const newObj = tcExpr(e.obj, envList);
-            if (newObj.a.tag !== "list") {
+            if (newObj.a.tag !== "list" && newObj.a.tag !== "string") {
                 throw new TypeError(`Cannot index into type ${typeStr(newObj.a)}`)
             }
             const newIdx = tcExpr(e.idx, envList);
             if (newIdx.a.tag !== "int") {
                 throw new TypeError(`Index is of non-integer type ${typeStr(newIdx.a)}`)
+            }
+            if (newObj.a.tag === "string") {
+                return { ...e, obj: newObj, idx: newIdx, a: newObj.a };
             }
             // for the case: l = [] \ l[0]
             // throw error for index out of bound in runtime
@@ -496,7 +507,12 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
                 if (!found) {
                     throw new ReferenceError(`Reference error: ${lhs.name} is not defined`);
                 }
-            } 
+            }
+            // can not move to isAssignable, as we need lhs.tag
+            // string[index] is valid but not assignable
+            if (lhs.tag === "index" && lhs.obj.a.tag !== "list") {
+                throw new TypeError(`\`${lhs.obj.a.tag}\` is not a list type`);
+            }
             if( !isAssignable(lhs.a, rhs.a) && !isSubClass(rhs.a, lhs.a, envList)) {
                 throw new TypeError(`Cannot assign ${typeStr(rhs.a)} to ${typeStr(lhs.a)}`);
             }

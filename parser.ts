@@ -41,6 +41,7 @@ export function traverseType(c : TreeCursor, s : string): Type {
             if (name === "int") type = {tag: "int"};
             else if (name === "bool") type = {tag: "bool"};
             else if (name === "none") type = {tag: "none"};
+            else if (name === "str") type = {tag: "string"};
             else {
                 type = {tag: "class", name};
             }
@@ -193,6 +194,8 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<any> {
             return { tag: "literal", value: "None" };
         case "Number":
             return { tag: "literal", value: Number(s.substring(c.from, c.to)) }
+        case "String":
+            return { tag: "literal", value: s.substring(c.from, c.to) };
         case "self":
         case "PropertyName":
         case "VariableName":

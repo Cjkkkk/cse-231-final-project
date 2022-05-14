@@ -83,8 +83,32 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 return [`i32.const 1`];
             } else if (expr.value === false) {
                 return [`i32.const 0`];
-            } else {
+            } else if (typeof expr.value === "number") {
                 return [`i32.const ${expr.value}`];
+            } else {
+                // XHF TODO: chocopy only support ASCII [32-126]
+                const chars = expr.value.substring(1, expr.value.length - 1);
+                const elems = Array.from(chars).reverse().map((c) => { 
+                    return [`i32.const ${c.charCodeAt(0)}`] 
+                }).flat();
+                elems.push(`(global.get $heap)`, `(i32.const ${chars.length})`, `(i32.store)`);
+                Array.from(chars).reverse().forEach((c, i) => {
+                    elems.push(`(local.set $scratch)`,
+                    `(global.get $heap)`,
+                    `(i32.add (i32.mul (i32.const ${i+1}) (i32.const 4)))`,
+                    `(local.get $scratch)`,
+                    `(i32.store)`);
+                });
+                elems.push(
+                    `(global.get $heap) ;; addr of the list`,
+                    `(global.get $heap)`,
+                    `(i32.const ${chars.length})`,
+                    `(i32.add (i32.const 1))`,
+                    `(i32.mul (i32.const 4))`,
+                    `(i32.add)`,
+                    `(global.set $heap)`,
+                )
+                return elems;
             }
         }
         case "name": {
@@ -107,8 +131,8 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
             var opstmts = binOpStmts(expr.op);
             // DSC TODO: add list concat
-            if (expr.lhs.a.tag === "list" && expr.rhs.a.tag === "list" && expr.op === BinOp.Plus) {
-                opstmts = [`call $concat_list`];
+            if (expr.lhs.a.tag === expr.rhs.a.tag && (expr.lhs.a.tag === "list" || expr.lhs.a.tag === "string") && expr.op === BinOp.Plus) {
+                opstmts = [`call $concat_list_string`];
             }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
         }
@@ -121,6 +145,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                     case "bool": toCall = "print_bool"; break;
                     case "int": toCall = "print_num"; break;
                     case "none": toCall = "print_none"; break;
+                    case "string": toCall = "print_string"; break;
                 }
             } else if (expr.name === "len") {
                 valStmts.push(
@@ -508,9 +533,9 @@ function buildFieldContext(root: Node): FieldContexMap {
 }
 
 export function builtinGen(): string[] {
-    // concat_list
-    const copy_list = [
-        `(func $copy_list (param $src i32) (param $addr i32)`,
+    // concat_list_string
+    const copy_list_string = [
+        `(func $copy_list_string (param $src i32) (param $addr i32)`,
         `(local $i i32)`,
         `(local $len i32)`,
         `(local.get $src)`,
@@ -533,8 +558,8 @@ export function builtinGen(): string[] {
         )`.split("\n"),
         `)`
     ];
-    const concat_list = [
-        `(func $concat_list (param i32) (param i32) (result i32)`,
+    const concat_list_string = [
+        `(func $concat_list_string (param i32) (param i32) (result i32)`,
         `(global.get $heap)`,
         `(i32.load (local.get 0))`,
         `(i32.load (local.get 1))`,
@@ -542,21 +567,56 @@ export function builtinGen(): string[] {
         `(i32.store) ;; store new length`,
         `(local.get 0)`,
         `(i32.add (global.get $heap) (i32.const 4))`,
-        `(call $copy_list)`,
+        `(call $copy_list_string)`,
         `(local.get 1)`,
         `(i32.load (local.get 0))`,
         `(i32.mul (i32.const 4))`,
         `(i32.add (i32.const 4))`,
         `(i32.add (global.get $heap))`,
-        `(call $copy_list)`,
+        `(call $copy_list_string)`,
         `(global.get $heap) ;; return addr`,
         `(i32.load (global.get $heap))`,
         `(i32.mul (i32.const 4))`,
         `(i32.add (i32.const 4))`,
         `(global.set $heap)`,
         `)`
-    ]
-    return [...copy_list, ...concat_list];
+    ];
+    const print_string = [
+        `(func $print_string (param $addr i32) (result i32)`,
+        `(local $i i32)`,
+        `(local $len i32)`,
+        `(local $lf i32)`,
+        `(local $char_to_print i32)`,
+        `(local.get $addr)`,
+        `(i32.load)`,
+        `(local.set $len)`,
+        `(local.set $i (i32.const 0))`,
+        ...`(block
+            (loop
+                (br_if 1 (i32.eq (local.get $i) (local.get $len)))
+                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (local.get $addr))
+                (i32.load)
+                (local.set $char_to_print)
+                (if (i32.eq (local.get $i) (i32.sub (local.get $len) (i32.const 1)))
+                    (then
+                        (local.set $lf (i32.const 1))
+                    )
+                    (else
+                        (local.set $lf (i32.const 0))
+                    )
+                )
+                (local.get $char_to_print)
+                (local.get $lf)
+                (call $print_char)
+                (local.set $i (i32.add (local.get $i) (i32.const 1)))
+                (br 0)
+            )
+        )`.split("\n"),
+        `(local.get $len)`,
+        `)`
+    ];
+    return [...copy_list_string, ...concat_list_string, ...print_string];
 }
 
 
@@ -608,6 +668,7 @@ export function compile(source : string) : string {
     (func $print_num (import "imports" "print_num") (param i32) (result i32))
     (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
     (func $print_none (import "imports" "print_none") (param i32) (result i32))
+    (func $print_char (import "imports" "print_char") (param i32) (param i32) (result i32))
     (func $check_init(import "check" "check_init") (param i32) (result i32))
     (func $check_index(import "check" "check_index") (param i32) (param i32) (result i32))
     (memory $0 1)
