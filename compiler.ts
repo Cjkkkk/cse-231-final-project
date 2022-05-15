@@ -13,6 +13,7 @@ type FieldContext = Map<string, number>;
 type MethodContextMap = Map<string, MethodContext>;
 type FieldContexMap = Map<string, FieldContext>;
 var loop_label = 0;
+var for_label = 0;
 
 function variableNames(stmts: Stmt<Type>[]) : string[] {
     const vars : Array<string> = [];
@@ -146,6 +147,8 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                     case "int": toCall = "print_num"; break;
                     case "none": toCall = "print_none"; break;
                     case "string": toCall = "print_string"; break;
+                    // XHF TODO: print list
+                    case "list": toCall = "print_num"; break;
                 }
             } else if (expr.name === "len") {
                 valStmts.push(
@@ -385,7 +388,36 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             return result;
         }
         case "for": {
-            // TODO XHF
+            const result = [];
+            // XHF TODO: if array is a string, we need to reconstruct a string for cnt
+            const arrExpr = codeGenExpr(stmt.array, locals, fcm, mcm);
+            if (stmt.cnt.tag !== "name" || (stmt.array.a.tag !== "list" && stmt.array.a.tag !== "string")) break;
+            const bodyLabel = loop_label;
+            loop_label += 1;
+            const condLabel = loop_label;
+            loop_label += 1;
+            const forLabel = for_label;
+            for_label += 1;
+            return [...arrExpr,
+                    `(i32.load)`,
+                    `(local.set $scratch)`,
+                    // `(local.get $scratch)`,
+                    // `(call $print_num)`,
+                    `(global.set $for_${forLabel} (i32.const 0))`,
+                    `(block $label_${bodyLabel}`,
+                        `(loop $label_${condLabel}`,
+                            `(i32.ge_s (global.get $for_${forLabel}) (local.get $scratch))`,
+                            `br_if $label_${bodyLabel}`,
+                            `(i32.add (i32.const 1) (global.get $for_${forLabel}))`,
+                            `(i32.mul (i32.const 4))`,
+                            `(i32.add (global.get $heap))`,
+                            `(i32.load)`,
+                            (locals.has(stmt.cnt.name))? `(local.set $${stmt.cnt.name})` : `(global.set $${stmt.cnt.name})`,
+                            ...stmt.body.map((s) => codeGenStmt(s, locals, fcm, mcm)).flat(),
+                            `(global.set $for_${forLabel} (i32.add (global.get $for_${forLabel}) (i32.const 1)))`,
+                            `br $label_${condLabel}`,
+                        `)`,
+                    `)`];
         }
     }
 }
@@ -632,6 +664,9 @@ export function compile(source : string) : string {
     // function lifting
     const [newStmts, funs, refCls] = functionLifting(ast); 
     const [vars, cls, stmts] = varsClassesStmts(newStmts);
+
+    // XHF TODO: very ugly way to deal with vars, can be betters
+    for (var i = 0; i < 10; i++) { vars.push(`for_${i}`); }
 
     // build inheritance graph
     const root = buildGraph(refCls.concat(cls as ClassStmt<any>[]) as ClassStmt<any>[]);

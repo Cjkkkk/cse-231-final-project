@@ -322,6 +322,11 @@ function rewriteStmts(stmts: Stmt<any>[], currentFuncName: string, funcEnv: Env<
             } case "scope": {
                 // DSC TODO
                 break;
+            } case "for": {
+                s.cnt = rewriteExpr(s.cnt, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+                s.array = rewriteExpr(s.array, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+                s.body = rewriteStmts(s.body, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
+                break;
             } default: {
                 throw new Error(`Unsupported stmt type:`);
             }
