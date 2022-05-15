@@ -79,6 +79,8 @@ export function isSubType(lhs: Type, rhs: Type) {
             return isEmptyList(rhs) || isAssignable(lhs.type, rhs.type);
         else
             return isTypeEqual(rhs, { tag: "none" });
+    } else if (rhs.tag === "list") {
+        return isAssignable(lhs, rhs.type);
     }
     return false;
 }
