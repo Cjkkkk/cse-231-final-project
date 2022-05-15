@@ -14,7 +14,7 @@ export function typeCheck(source: string) : Type {
         return "none"
     }
     const lastType = (lastStmt as ExprStmt<any>).expr.a;
-    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") 
+    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none" || lastType.tag === "string") 
         return lastType.tag;
     else if (lastType.tag === "class") 
         return CLASS(lastType.name);

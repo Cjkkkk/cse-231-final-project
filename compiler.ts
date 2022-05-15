@@ -100,7 +100,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                     `(i32.store)`);
                 });
                 elems.push(
-                    `(global.get $heap) ;; addr of the list`,
+                    `(global.get $heap) ;; addr of the string`,
                     `(global.get $heap)`,
                     `(i32.const ${chars.length})`,
                     `(i32.add (i32.const 1))`,
@@ -219,7 +219,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         case "index": {
             var objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
             var idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
-            return [
+            var indexStmts = [
                 ...objStmts,
                 // DSC TODO: below is an ugly way to use the address of obj more than once
                 `(local.set $scratch)`,
@@ -236,6 +236,23 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 `(i32.add)`,
                 `(i32.load)`
             ];
+            if (expr.a.tag === "string") {
+                indexStmts.push(
+                    `(global.get $heap)`,
+                    `(i32.const 1)`,
+                    `(i32.store)`,
+                    `(local.set $scratch) ;; put the value here`,
+                    `(global.get $heap)`,
+                    `(i32.add (i32.const 4))`,
+                    `(local.get $scratch)`,
+                    `(i32.store)`,
+                    `(global.get $heap) ;; addr of the string`,
+                    `(global.get $heap)`,
+                    `(i32.add (i32.const 8))`,
+                    `(global.set $heap)`,
+                )
+            }
+            return indexStmts;
         }
     }
 }
@@ -594,7 +611,8 @@ export function builtinGen(): string[] {
         ...`(block
             (loop
                 (br_if 1 (i32.eq (local.get $i) (local.get $len)))
-                (i32.mul (local.get $i) (i32.const 4))
+                (i32.add (local.get $i) (i32.const 1))
+                (i32.mul (i32.const 4))
                 (i32.add (local.get $addr))
                 (i32.load)
                 (local.set $char_to_print)

@@ -492,7 +492,6 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
                 while: whileCondBody
             }
         }
-        case "⚠":
         case "PassStatement": {
             assert(c.node.type.name === originName);
             return { tag: "pass"}

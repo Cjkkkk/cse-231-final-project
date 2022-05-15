@@ -15,6 +15,12 @@ describe("PA4 tests for string", () => {
   assertTC("string-len-type", `
   s:str = "test"
   len(s)`, NUM);
+  assertPrint("string-len", `
+  s:str = "test"
+  print(len(s))`, [`4`]);
+  assertPrint("string-index-len", `
+  s:str = "test"
+  print(len(s[0]))`, [`1`]);
   // string construct failures
   // 1
   assertTCFail("string-none-init-value-type", `
@@ -36,11 +42,11 @@ describe("PA4 tests for string", () => {
   // 1
   assertPrint("string-index-int-valid", `
   s:str = "test"
-  s[0]`, [`t`]);
+  print(s[0])`, [`t`]);
   // 2
   assertPrint("string-index-len-valid", `
-  s:str = "test"
-  s[len(s)-1]`, [`t`]);
+  s:str = "testing"
+  print(s[len(s)-1])`, [`g`]);
   // not valid
   // 1
   assertFail("string-index-len-out-of-bound-1", `
@@ -55,12 +61,12 @@ describe("PA4 tests for string", () => {
   s:str = "test"
   s[len(s)]`);
   // 4
-  assertFail("string-invalid-index", `
+  assertTCFail("string-invalid-index", `
   s:str = "test"
   t:bool=True
   s[t]`);
   // 5
-  assertFail("string-invalid-index", `
+  assertTCFail("string-invalid-index", `
   s:str = "test"
   t:str = "index"
   s[t]`);
@@ -69,12 +75,12 @@ describe("PA4 tests for string", () => {
   // 1
   assertPrint("string-len-int-valid-1", `
   s:str="a longer test string"
-  len(s)
+  print(len(s))
   `, [`20`]);
   // 2
   assertPrint("string-len-int-valid-2", `
   s:str=""
-  len(s)
+  print(len(s))
   `, [`0`]);
   // not valid
   // Note: most of type check of len() is included in tests of list
@@ -100,17 +106,17 @@ describe("PA4 tests for string", () => {
   assertPrint("string-concat-print", `
   s:str = "sss"
   t:str = "t"
-  s+t`, [`ssst`]);
+  print(s+t)`, [`ssst`]);
   // 5
   assertPrint("string-concat-index-print", `
   s:str = "sss"
   t:str = "tttt"
-  (s+t)[6]`, [`t`]);
+  print((s+t)[6])`, [`t`]);
   // 6
   assertPrint("string-concat-len-print", `
   s:str = "sss"
   t:str = "tttt"
-  len(s+t)`, [`7`]);
+  print(len(s+t))`, [`7`]);
   // TODO: string as literal
   // 1
   assertTCFail("string-as-literal-bad-type-1", `
@@ -119,4 +125,10 @@ describe("PA4 tests for string", () => {
   assertTCFail("string-as-literal-bad-type-2", `
   a:int = 1
   a + "s"`);
+  assertPrint("string-as-param-and-return", `
+def f(s:str, i:int) -> str:
+  return s[i]
+s:str = "qwerty"
+print(f(s, 3))
+  `, ['r']);
 });
