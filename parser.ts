@@ -533,7 +533,13 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             t.firstChild(); // for
             assert(t.node.type.name === "for");
             t.nextSibling();
-            const cnt = traverseExpr(t, s);
+            // const cnt = traverseExpr(t, s);
+            if(t.name !== "VariableName")
+                throw new Error("Could not parse stmt at " + t.node.from + " " + t.node.to + ": " + s.substring(t.from, t.to));
+            const cnt: NameExpr<any> = {
+                tag: "name",
+                name: s.substring(t.from, t.to)
+            };
             t.nextSibling(); // in
             assert(t.node.type.name === "in");
             t.nextSibling(); // array
@@ -542,7 +548,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             const body = traverseBody(t, s);
             t.parent()
             assert(t.node.type.name === originName);
-            return { tag: "for", cnt, array, body };
+            return { tag: "for", loopVar: cnt, iter: array, body };
         }
         default:
             throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
