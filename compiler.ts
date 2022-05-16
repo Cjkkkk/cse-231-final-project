@@ -390,24 +390,14 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             return result;
         }
         case "for": {
-            const result = [];
-            // XHF TODO: if array is a string, we need to reconstruct a string for cnt
             const arrExpr = codeGenExpr(stmt.iter, locals, fcm, mcm);
-            // Below should be checked in TC so I comment it 
-            // And we don't need those label by turning to anonymity
-            // If you agree, please remove the lines and the comment.
-            // if (stmt.cnt.tag !== "name" || (stmt.array.a.tag !== "list" && stmt.array.a.tag !== "string")) break;
-            // const bodyLabel = loop_label;
-            // loop_label += 1;
-            // const condLabel = loop_label;
-            // loop_label += 1;
             const forLabel = for_label;
             for_label += 1;
-            const loopVarUpdate = (locals.has(stmt.loopVar.name)) ? `(local.set $${stmt.loopVar.name})` : `(global.set $${stmt.loopVar.name})`
+            const loopVarUpdate = (locals.has(stmt.loopVar.name)) ? `(local.set $${stmt.loopVar.name})` : `(global.set $${stmt.loopVar.name})`;
             const loadVal = [];
             if (stmt.iter.a.tag === "list") {
                 loadVal.push(
-                `(i32.add (i32.const 1) (global.get $ForLoopCnt${forLabel}))`,
+                    `(i32.add (i32.const 1) (global.get $ForLoopCnt${forLabel}))`,
                     `(i32.mul (i32.const 4))`,
                     `(i32.add (global.get $ForLoopIter${forLabel}))`,
                     `(i32.load)`,
@@ -418,7 +408,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
                     `(global.get $ForLoopIter${forLabel})`,
                     `(global.get $ForLoopCnt${forLabel})`,
                     `(call $get_string_index)`,
-                    loopVarUpdate, );
+                    loopVarUpdate);
             }
             return [...arrExpr,
                     `(global.set $ForLoopIter${forLabel})`,
@@ -726,9 +716,6 @@ export function compile(source : string) : string {
     // function lifting
     const [newStmts, funs, refCls] = functionLifting(ast);
     const [vars, cls, stmts] = varsClassesStmts(newStmts);
-
-    // // XHF TODO: very ugly way to deal with vars, can be betters
-    // for (var i = 0; i < 10; i++) { vars.push(`for_${i}`); }
 
     // build inheritance graph
     const root = buildGraph(refCls.concat(cls as ClassStmt<any>[]) as ClassStmt<any>[]);
