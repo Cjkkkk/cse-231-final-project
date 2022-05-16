@@ -1,4 +1,4 @@
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass, LValue, NameExpr } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass, LValue, NameExpr, isIterable } from "./ast";
 import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type, scope: Scope}
@@ -107,6 +107,16 @@ export function didAllPathReturn(stmts: Stmt<any>[]): boolean {
     return stmts.some( s => (s.tag === "return") || (s.tag === "if") && didAllPathReturn(s.if.body) && didAllPathReturn(s.else) && (s.elif.every((e => didAllPathReturn(e.body)))));
 }
 
+export function tcNameExpr(e: NameExpr<any>, envList: SymbolTableList): NameExpr<Type> {
+    let [found, t] = envList.lookUpSymbol(e.name, SearchScope.ALL);
+    if (!found) {
+        throw new ReferenceError(`Reference error: ${e.name} is not defined`)
+    }
+    if (t.tag !== "var") {
+        throw new ReferenceError(`Reference error: ${e.name} is not a variable`)
+    }
+    return { ...e, a: t.type };
+}
 
 export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
     switch(e.tag) {
@@ -185,14 +195,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             }
         }
         case "name": {
-            let [found, t] = envList.lookUpSymbol(e.name, SearchScope.ALL);
-            if (!found) {
-                throw new ReferenceError(`Reference error: ${e.name} is not defined`)
-            } 
-            if (t.tag !== "var") {
-                throw new ReferenceError(`Reference error: ${e.name} is not a variable`)
-            }
-            return { ...e, a: t.type};
+            return tcNameExpr(e, envList);
         }
         case "call": {
             if(e.name === "print") {
@@ -568,14 +571,17 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
             return { ...s, value: valTyp };
         }
         case "for": {
-            const newCnt = tcExpr(s.cnt, envList);
-            const newArray = tcExpr(s.array, envList);
+            const newCnt = tcNameExpr(s.loopVar, envList);
+            const newIter = tcExpr(s.iter, envList);
+            if (!isIterable(newIter.a)) {
+                throw new TypeError(`Cannot iterate over value of type ${typeStr(newCnt.a)}`);
+            }
             // TODO: should compare to newArray.a.type
-            if (!isAssignable(newCnt.a, newArray.a)) {
-                throw new TypeError(`Expected type ${typeStr(newCnt.a)} but got type ${typeStr(newArray.a)}`);
+            if (!isAssignable(newCnt.a, newIter.a)) {
+                throw new TypeError(`Expected type ${typeStr(newCnt.a)} but got type ${typeStr(newIter.a)}`);
             }
             const newBody = s.body.map(stmt => tcStmt(stmt, envList, currentReturn));
-            return {...s, cnt: newCnt, array: newArray, body: newBody };
+            return {...s, loopVar: newCnt, iter: newIter, body: newBody };
         }
     }
 }

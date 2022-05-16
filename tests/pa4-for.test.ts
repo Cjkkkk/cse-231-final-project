@@ -3,17 +3,39 @@ import { NUM, NONE, CLASS, LIST } from "./helpers.test"
 
 describe("PA4 tests for for-loops", () => {
     // 1
-    assertPrint("for-loop", `
+    assertPrint("for-loop-over-list", `
 x: int = 0
 i: int = 0
 for i in [1,2,3,4,5,6,7,8,9,10]:
     x = x + 1
 print(x)`, [`10`]);
+    assertPrint("for-loop-over-string", `
+s: str = "ghkjl"
+i: str = ""
+j: str = ""
+for i in s:
+    j = i + j
+print(j)`, [`ljkhg`]);
+    assertPrint("for-loop-over-string", `
+s: str = "ghk"
+i: str = ""
+for i in s:
+    print(i)`, [`g`, `h`, `k`]);
     assertTCFail("wrong-type-for-counter", `
 x:int = 0
 i: int = 0
 for i in [True, True]:
-    // x = x + 1`);
+    x = x + 1`);
+//     assertPrint("nested-for-loop", `
+// x: int = 0
+// i: int = 0
+// j: int = 0
+// for i in [1,2,3,4,5,6,7,8,9,10]:
+//     for j in [1,2,3,4,5,6,7,8,9,10]:
+//         x = x + 1
+// print(x)`, [`100`]);
+
+
     // assertTC("empty-list", `
     // a: [int] = None
     // a = []

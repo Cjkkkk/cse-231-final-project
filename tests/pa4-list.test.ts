@@ -197,6 +197,12 @@ describe("PA4 tests for list", () => {
     b = []
     a = a + b
     print(len(a))`, [`0`]);
+    assertPrint("list-concat-itself", `
+    a: [int] = None
+    b: [int] = None
+    a = [1,2,3,4,5,6,7,8,9,10]
+    a = a + a
+    print(len(a))`, [`20`]);
     assertTCFail("list-concat-diff-type", `
     a: [int] = None
     b: [bool] = None

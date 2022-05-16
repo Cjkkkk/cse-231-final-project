@@ -3,7 +3,6 @@ import { Stmt, Expr, Type, BinOp, UniOp, ClassStmt, LiteralExpr, isClass, FuncSt
 import { parse } from './parser';
 import { tcProgram } from './tc';
 import { functionLifting } from "./functionLift"
-import { typeStr } from './ast';
 
 
 type Env = Set<string>;
@@ -131,7 +130,6 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             const lhsExprs = codeGenExpr(expr.lhs, locals, fcm, mcm);
             const rhsExprs = codeGenExpr(expr.rhs, locals, fcm, mcm);
             var opstmts = binOpStmts(expr.op);
-            // DSC TODO: add list concat
             if (expr.lhs.a.tag === expr.rhs.a.tag && (expr.lhs.a.tag === "list" || expr.lhs.a.tag === "string") && expr.op === BinOp.Plus) {
                 opstmts = [`call $concat_list_string`];
             }
@@ -240,20 +238,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 `(i32.load)`
             ];
             if (expr.a.tag === "string") {
-                indexStmts.push(
-                    `(global.get $heap)`,
-                    `(i32.const 1)`,
-                    `(i32.store)`,
-                    `(local.set $scratch) ;; put the value here`,
-                    `(global.get $heap)`,
-                    `(i32.add (i32.const 4))`,
-                    `(local.get $scratch)`,
-                    `(i32.store)`,
-                    `(global.get $heap) ;; addr of the string`,
-                    `(global.get $heap)`,
-                    `(i32.add (i32.const 8))`,
-                    `(global.set $heap)`,
-                )
+                return [...objStmts, ...idxStmts, `(call $get_string_index)`]
             }
             return indexStmts;
         }
@@ -407,32 +392,48 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
         case "for": {
             const result = [];
             // XHF TODO: if array is a string, we need to reconstruct a string for cnt
-            const arrExpr = codeGenExpr(stmt.array, locals, fcm, mcm);
-            if (stmt.cnt.tag !== "name" || (stmt.array.a.tag !== "list" && stmt.array.a.tag !== "string")) break;
-            const bodyLabel = loop_label;
-            loop_label += 1;
-            const condLabel = loop_label;
-            loop_label += 1;
+            const arrExpr = codeGenExpr(stmt.iter, locals, fcm, mcm);
+            // Below should be checked in TC so I comment it 
+            // And we don't need those label by turning to anonymity
+            // If you agree, please remove the lines and the comment.
+            // if (stmt.cnt.tag !== "name" || (stmt.array.a.tag !== "list" && stmt.array.a.tag !== "string")) break;
+            // const bodyLabel = loop_label;
+            // loop_label += 1;
+            // const condLabel = loop_label;
+            // loop_label += 1;
             const forLabel = for_label;
             for_label += 1;
-            return [...arrExpr,
+            const loopVarUpdate = (locals.has(stmt.loopVar.name)) ? `(local.set $${stmt.loopVar.name})` : `(global.set $${stmt.loopVar.name})`
+            const loadVal = [];
+            if (stmt.iter.a.tag === "list") {
+                loadVal.push(
+                `(i32.add (i32.const 1) (global.get $ForLoopCnt${forLabel}))`,
+                    `(i32.mul (i32.const 4))`,
+                    `(i32.add (global.get $ForLoopIter${forLabel}))`,
                     `(i32.load)`,
-                    `(local.set $scratch)`,
-                    // `(local.get $scratch)`,
-                    // `(call $print_num)`,
-                    `(global.set $for_${forLabel} (i32.const 0))`,
-                    `(block $label_${bodyLabel}`,
-                        `(loop $label_${condLabel}`,
-                            `(i32.ge_s (global.get $for_${forLabel}) (local.get $scratch))`,
-                            `br_if $label_${bodyLabel}`,
-                            `(i32.add (i32.const 1) (global.get $for_${forLabel}))`,
-                            `(i32.mul (i32.const 4))`,
-                            `(i32.add (global.get $heap))`,
-                            `(i32.load)`,
-                            (locals.has(stmt.cnt.name))? `(local.set $${stmt.cnt.name})` : `(global.set $${stmt.cnt.name})`,
+                    loopVarUpdate);
+            }
+            if (stmt.iter.a.tag === "string") {
+                loadVal.push(
+                    `(global.get $ForLoopIter${forLabel})`,
+                    `(global.get $ForLoopCnt${forLabel})`,
+                    `(call $get_string_index)`,
+                    loopVarUpdate, );
+            }
+            return [...arrExpr,
+                    `(global.set $ForLoopIter${forLabel})`,
+                    `(global.get $ForLoopIter${forLabel})`,
+                    `(i32.load)`,
+                    `(global.set $ForLoopLen${forLabel})`,
+                    `(global.set $ForLoopCnt${forLabel} (i32.const 0))`,
+                    `(block`,
+                        `(loop`,
+                            `(i32.ge_s (global.get $ForLoopCnt${forLabel}) (global.get $ForLoopLen${forLabel}))`,
+                            `(br_if 1)`,
+                            ...loadVal,
                             ...stmt.body.map((s) => codeGenStmt(s, locals, fcm, mcm)).flat(),
-                            `(global.set $for_${forLabel} (i32.add (global.get $for_${forLabel}) (i32.const 1)))`,
-                            `br $label_${condLabel}`,
+                            `(global.set $ForLoopCnt${forLabel} (i32.add (global.get $ForLoopCnt${forLabel}) (i32.const 1)))`,
+                            `(br 0)`,
                         `)`,
                     `)`];
         }
@@ -624,9 +625,11 @@ export function builtinGen(): string[] {
         `(i32.add (global.get $heap))`,
         `(call $copy_list_string)`,
         `(global.get $heap) ;; return addr`,
+        `(global.get $heap)`,
         `(i32.load (global.get $heap))`,
         `(i32.mul (i32.const 4))`,
         `(i32.add (i32.const 4))`,
+        `(i32.add)`,
         `(global.set $heap)`,
         `)`
     ];
@@ -666,9 +669,50 @@ export function builtinGen(): string[] {
         `(local.get $len)`,
         `)`
     ];
-    return [...copy_list_string, ...concat_list_string, ...print_string];
+    const get_string_index = [
+        `(func $get_string_index (param $addr i32) (param $idx i32) (result i32)`,
+        `(local $val i32)`,
+        `(local.get $addr)`,
+        `(i32.add (i32.const 4))`,
+        `(local.get $addr)`,
+        // DSC TODO: check init , now memory error
+        // `(call $check_init)`,
+        `(i32.load) ;; load the length of the list`,
+        `(local.get $idx)`,
+        `(call $check_index)`,
+        `(i32.mul (i32.const 4))`,
+        `(i32.add)`,
+        `(i32.load)`,
+        `(local.set $val) ;; put the value here`,
+        `(global.get $heap)`,
+        `(i32.const 1)`,
+        `(i32.store)`,
+        `(global.get $heap)`,
+        `(i32.add (i32.const 4))`,
+        `(local.get $val)`,
+        `(i32.store)`,
+        `(global.get $heap) ;; addr of the string`,
+        `(global.get $heap)`,
+        `(i32.add (i32.const 8))`,
+        `(global.set $heap)`,
+        `)`
+    ]
+    return [...copy_list_string, ...concat_list_string, ...print_string, ...get_string_index];
 }
 
+export function codeGenAllGlobalVar(vars: string[]) : string {
+    var varUser = addIndent(vars.map(v => `(global $${v} (mut i32) (i32.const 0))`), 1).join("\n");
+    const forLoopLabels = []
+    for (let i = 0; i < for_label; i++) {
+        forLoopLabels.push(
+            `(global $ForLoopIter${i} (mut i32) (i32.const 0))`,
+            `(global $ForLoopCnt${i} (mut i32) (i32.const 0))`, 
+            `(global $ForLoopLen${i} (mut i32) (i32.const 0))`
+            );
+    }
+    var varHelper = addIndent(forLoopLabels, 1).join("\n");
+    return varUser + varHelper;
+}
 
 export function compile(source : string) : string {
     // parse
@@ -680,11 +724,11 @@ export function compile(source : string) : string {
     const locals = new Set<string>();
 
     // function lifting
-    const [newStmts, funs, refCls] = functionLifting(ast); 
+    const [newStmts, funs, refCls] = functionLifting(ast);
     const [vars, cls, stmts] = varsClassesStmts(newStmts);
 
-    // XHF TODO: very ugly way to deal with vars, can be betters
-    for (var i = 0; i < 10; i++) { vars.push(`for_${i}`); }
+    // // XHF TODO: very ugly way to deal with vars, can be betters
+    // for (var i = 0; i < 10; i++) { vars.push(`for_${i}`); }
 
     // build inheritance graph
     const root = buildGraph(refCls.concat(cls as ClassStmt<any>[]) as ClassStmt<any>[]);
@@ -702,8 +746,8 @@ export function compile(source : string) : string {
     const tableCode = addIndent(codeGenTable(root, mcm), 1).join("\n");
     const classCode = refCls.concat(cls as ClassStmt<any>[]).map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f=> f.join("\n")).join("\n\n");
     const funsCode = funs.map(f => addIndent(codeGenStmt(f, locals, fcm, mcm), 1)).map(f => f.join("\n")).join("\n\n");
-    const varDeclCode = addIndent(vars.map(v => `(global $${v} (mut i32) (i32.const 0))`), 1).join("\n");
     const allStmts = stmts.map(s => codeGenStmt(s, locals, fcm, mcm)).flat();
+    const varDeclCode = codeGenAllGlobalVar(vars);
 
     const lastStmt = ast[ast.length - 1];
     const isExpr = lastStmt.tag === "expr";

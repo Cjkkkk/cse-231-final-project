@@ -97,6 +97,10 @@ export function isEmptyList(a: Type) {
     return a.tag === "list" && a.type === null
 }
 
+export function isIterable(a: Type) {
+    return a.tag === "string" || a.tag === "list"
+}
+
 export type TypeDef = {name: string, type: Type}
 export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}
 
@@ -111,7 +115,7 @@ export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
 export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
-export type ForStmt<A> = { a?: A, tag: "for", cnt: Expr<A>, array: Expr<A>, body: Stmt<A>[] }
+export type ForStmt<A> = { a?: A, tag: "for", loopVar: NameExpr<A>, iter: Expr<A>, body: Stmt<A>[] }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
 export type NameExpr<A> = { a?: A, tag: "name", name: string}

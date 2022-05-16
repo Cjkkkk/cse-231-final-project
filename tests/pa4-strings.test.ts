@@ -7,6 +7,9 @@ describe("PA4 tests for string", () => {
   assertTC("string-type", `
   s:str = "test"
   s`, STRING);
+  assertPrint("print-string", `
+  s:str = "test"
+  print(s)`, [`test`]);
   // 2
   assertTC("string-index-type", `
   s:str = "test"
@@ -102,11 +105,21 @@ describe("PA4 tests for string", () => {
   s:str = "ssss"
   t:str = "ttt"
   len(s+t)`, NUM);
+  assertPrint("string-concat-assign", `
+  s:str = "ssss"
+  t:str = "ttt"
+  t = s + t
+  print(t)`, [`ssssttt`]);
   // 4
   assertPrint("string-concat-print", `
   s:str = "sss"
   t:str = "t"
   print(s+t)`, [`ssst`]);
+  assertPrint("string-concat-print", `
+  s:str = "sss"
+  t:str = "t"
+  t = s + t
+  print(t)`, [`ssst`]);
   // 5
   assertPrint("string-concat-index-print", `
   s:str = "sss"
