@@ -150,7 +150,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 }
             } else if (expr.name === "len") {
                 valStmts.push(
-                    // `(call $check_init)`,
+                    `(call $check_init)`,
                     `(i32.load)`
                 );
                 return valStmts;
@@ -187,6 +187,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 ...ObjStmt,
                 `i32.const ${fcm.get((expr.obj.a as {tag: "class", name: string}).name).get(expr.name)}`,
                 `i32.add`,
+                `call $check_init`,
                 `i32.load`
             ]
         }
@@ -226,7 +227,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
                 `(local.set $scratch)`,
                 `(local.get $scratch)`,
                 // DSC TODO: check init , now memory error
-                // `(call $check_init)`,
+                `(call $check_init)`,
                 `(i32.add (i32.const 4))`,
 
                 `(local.get $scratch)`,
@@ -601,8 +602,12 @@ export function builtinGen(): string[] {
     const concat_list_string = [
         `(func $concat_list_string (param i32) (param i32) (result i32)`,
         `(global.get $heap)`,
-        `(i32.load (local.get 0))`,
-        `(i32.load (local.get 1))`,
+        `(local.get 0)`,
+        `(call $check_init)`,
+        `(i32.load)`,
+        `(local.get 1)`,
+        `(call $check_init)`,
+        `(i32.load)`,
         `(i32.add)`,
         `(i32.store) ;; store new length`,
         `(local.get 0)`,
@@ -666,7 +671,7 @@ export function builtinGen(): string[] {
         `(i32.add (i32.const 4))`,
         `(local.get $addr)`,
         // DSC TODO: check init , now memory error
-        // `(call $check_init)`,
+        `(call $check_init)`,
         `(i32.load) ;; load the length of the list`,
         `(local.get $idx)`,
         `(call $check_index)`,

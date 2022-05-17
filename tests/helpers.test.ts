@@ -36,7 +36,7 @@ export async function run(source: string) {
             ...importObject,
             check: {
                 check_init: (arg: any) => {
-                    if (arg === 0) {
+                    if (arg <= 0) {
                         throw new Error("RUNTIME ERROR: object not intialized");
                     }
                     return arg;
