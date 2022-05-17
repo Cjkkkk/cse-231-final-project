@@ -255,9 +255,20 @@ export function literalToString(lit: LiteralExpr<any>): string {
 export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, mcm: MethodContextMap) : Array<string> {
     switch(stmt.tag) {
         case "class": {
+            let initAllocStmts: string[] = [];
+            
+            // allocate memory for strings
+            const stringStmts = stmt.fields.filter((f) => (f.var.type.tag === "string"));
+            stringStmts.forEach((f) => {
+                initAllocStmts.push(`(local $${f.var.name} i32)`);
+                locals.add(f.var.name);
+            })
+            stringStmts.forEach((f) => {
+                initAllocStmts.push(...codeGenStmt(f, locals, fcm, mcm));
+            });
+
             const vtableEnabled = 1;
             // generate for __init__ function
-            let initAllocStmts: string[] = [];
             // add vtable pointer here
             // TODO: determine the value of vtable pointer
             initAllocStmts.push(
@@ -267,11 +278,18 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             );
 
             stmt.fields.map((f, i)=>{
+                const varStmts = [];
+                if (f.var.type.tag === "string") {
+                    varStmts.push(`local.get $${f.var.name}`);
+                } else {
+                    varStmts.push(...codeGenExpr(f.value, locals, fcm, mcm));
+                }
                 initAllocStmts.push(
                     `global.get $heap`,
                     `i32.const ${(i + vtableEnabled) * 4}`,
                     `i32.add`,
-                    ...codeGenExpr(f.value, locals, fcm, mcm),
+                    // if string, get instead of allocate,
+                    ...varStmts,
                     `i32.store`
                 )
             });

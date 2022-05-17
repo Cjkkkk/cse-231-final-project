@@ -144,4 +144,51 @@ def f(s:str, i:int) -> str:
 s:str = "qwerty"
 print(f(s, 3))
   `, ['r']);
+  assertPrint("string-as-mem-var", `
+  class A(object):
+      w:bool=True
+      x:str="AAA"
+      y:int=1
+      def returnStr(self:A)->str:
+          return self.x
+
+  a:A=None
+  a=A()
+  print(a.returnStr())`, ["AAA"]);
+  assertPrint("string-as-mem-var-and-concat", `
+  class A(object):
+    w:bool=False
+    x:str="AAAA"
+    y:int=1
+    z:str="ZZZZZ"
+    def addStr(self:A, y:str)->str:
+        return self.z + y
+
+  a:A=None
+  a=A()
+  print(a.addStr("yy"))`, ["ZZZZZyy"]);
+  assertPrint("string-as-mem-var-in-inheritance", `
+  class A(object):
+    wa:int=2
+    x:str="xxx"
+    ya:int=3
+
+  class B(A):
+    wb:int=4
+    y:str="yyy"
+    za:bool=False
+          
+  a:A=None
+  b:B=None
+  a=A()
+  b=B()
+  print(b.x+b.y)`, ["xxxyyy"]);
+  assertPrint("string-as-param-in-nested-function", `
+  def f()->str:
+    x:str="xxxx"
+    def g(y:str)->str:
+      z:str="zzz"
+      return y+z
+    return g(x)
+  print(f())`, ["xxxxzzz"])
 });
