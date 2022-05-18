@@ -72,15 +72,15 @@ export function isAssignable(lhs: Type, rhs: Type): boolean {
 }
 
 export function isSubType(lhs: Type, rhs: Type) {
-    if (isClass(lhs)) {
-        return isTypeEqual(rhs, { tag: "none" });
-    } else if (lhs.tag === "list") {
+    if (lhs.tag === "list") {
         if (rhs.tag === "list")
             return isEmptyList(rhs) || isAssignable(lhs.type, rhs.type);
         else
             return isTypeEqual(rhs, { tag: "none" });
     } else if (rhs.tag === "list") {
         return isAssignable(lhs, rhs.type);
+    } else if (isClass(lhs)) {
+        return isTypeEqual(rhs, { tag: "none" });
     }
     return false;
 }

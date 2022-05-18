@@ -351,6 +351,8 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                     if (!isTypeEqual(curType, generalType)) {
                         if (isSubClass(generalType, curType, envList)) {
                             generalType = curType;
+                        } else if (isSubClass(curType, generalType, envList)) {
+                            // do nothing
                         } else if (generalType.tag === "none" && isClass(curType)) {
                             generalType = curType;
                         } else if (!(curType.tag === "none" && isClass(generalType))) {
