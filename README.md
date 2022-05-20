@@ -16,7 +16,9 @@
 
 - **Is there anything you’re stuck on?**
   
-  string in class, make global @XHF
+  In our implementation of strings, we allocate memory on the heap whenever we encounter string literals. However, member variables in classes are also allocated continuously on the heap. We assumed each member variable occupies 4 bytes of memory and relied on it to calculate the offset of each variable. Therefore, if there are string member variables in a class, it will corrupt the offsets corresponding to each variable after strings. 
+  
+  To solve this problem, we filter all the string member variables, allocate them on the heap first and assign the address to local variables before generating codes for the class. When initializing string member variables, we assign the local variables (i.e. the addresses of pre-allocated strings) to the member variables, which avoids corrupting the offset table of the class.
 
 - **Consider programs that work in Python, but not in ChocoPy, involving strings or lists. Pick one that you think would be a straightforward extension to your compiler – describe how you would implement it. Pick one that you think would be an extremely difficult extension to your compiler – describe why.**
   
