@@ -8,7 +8,11 @@
 
 - **What feature are you most proud of in your implementation and why?**
   
-  nested function @KSB
+  nested function, mainly because the nonlocal variable in nested function is quite challenging to implement. We implemented this in multiple steps. 
+  (1) We implemented the function lifting, which lift all the function into the global scope. We didn't consider closure and we need to rename the function to avoid name collision. 
+  (2) We implemented the closure computation, in this step, we go through every statements in the function body and find all the names. If a name is used but not defined locally by parameters of function or local variables then it is included in the closure. Then we add closure as parameters to the function and as arguments to all the calls to that function. We didn't consider the case that a function modifies a variable that is not defined locally nor global.
+  (3) We implemented the reference variable capture, in this step, we go through every statements in the function body and find all the names that are local variables but referenced and modified in the inner function. Then we modify that local variables to be wrapped in reference type, which means it will be allocated in heap. And we need to change all the reference to that variable to correctly reference to the new variable.
+  After these steps, we completed the nested function implemention. This process is error-prone and breaking down the process to multiple steps help us implemented this functionality.
 
 - **What features remain to implement?**
   
@@ -24,4 +28,6 @@
   
   - a straightforward extension: we think list comprehension is a reasonable and straightforward extension, given now we have implemented the list and for-loop. List comprehension is to create a list based on existing lists. We can easily extend the current program. We need to add the comprehension syntax to the ast as a new expression and extend the parser and type checker. In the codegen phrase, we just create a new list, allocate the memory, compute each element in the for-loop and place them in the correct position in the list.
   
-  - a hard extension: garbage collection.  @KSB
+  - a hard extension: garbage collection. We first would need a memory allocator which keeps track of the free memory regions using linked list. If we don't have a memory allocator, garbage collection would not make sense since we can not reuse the memory. 
+  After we have a memory allocator, we would need to when a memory can be recycled, meaning no name is associated with it. To do this, we will try simple reference counting. We will add extra reference counter at the beginning of every variables and we will insert reference increase function at the variable creation and reference decrease and check statements at the end of the function. Reference increase and decrease function simply increase and decrease the reference counter when a variable is created and destroyed. The reference check function check if the reference counter is 0. If so, it will recycle that memory region and add it to the linked list to be managed by the memory allocator.
+  This is quite similar to the C++ RAII design. This is hard because (1) we need to change the layout of the varibles (2) we need to add a lot of extra statements which are not written by the user into the programs and make sure the semantics is correct. (3) we need to add memory allocator to manage the memory, which is not straightforward.
