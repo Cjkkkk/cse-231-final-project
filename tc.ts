@@ -574,12 +574,13 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
         }
         case "for": {
             const newCnt = tcNameExpr(s.loopVar, envList);
-            const newIter = tcExpr(s.iter, envList);
+            const newIter  = tcExpr(s.iter, envList);
             if (!isIterable(newIter.a)) {
                 throw new TypeError(`Cannot iterate over value of type ${typeStr(newCnt.a)}`);
             }
             // TODO: should compare to newArray.a.type
-            if (!isAssignable(newCnt.a, newIter.a)) {
+            if ((newIter.a.tag === "list" && !isAssignable(newCnt.a, newIter.a.type)) || 
+                (newIter.a.tag === "string" && !isAssignable(newCnt.a, newIter.a))) {
                 throw new TypeError(`Expected type ${typeStr(newCnt.a)} but got type ${typeStr(newIter.a)}`);
             }
             const newBody = s.body.map(stmt => tcStmt(stmt, envList, currentReturn));
