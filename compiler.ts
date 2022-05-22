@@ -35,9 +35,14 @@ function varsClassesStmts(stmts: Stmt<Type>[]) : [string[], Stmt<Type>[], Stmt<T
     return [variableNames(stmts), classes(stmts), nonFuns(stmts)];
 }
 
-export async function run(watSource : string, config: any) : Promise<number> {
-    const wabtApi = await wabt();
+let isInitialized = false;
+let wabtApi: any = undefined;
 
+export async function run(watSource : string, config: any) : Promise<number> {
+    if (!isInitialized) {
+        wabtApi = await wabt();
+        isInitialized = true;
+    }
     const parsed = wabtApi.parseWat("example", watSource);
     const binary = parsed.toBinary({});
     const wasmModule = await WebAssembly.instantiate(binary.buffer, config);
