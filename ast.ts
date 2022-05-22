@@ -1,6 +1,6 @@
 export enum BinOp {Plus = "PLUS", Minus = "MINUS", Mul = "MUL", Div = "DIV", Mod = "MOD", Equal = "EQUAL", Unequal = "UNEQUAL", Le = "LE", Ge = "GE", Lt = "LT", Gt = "GT", Is = "IS"}
 export enum UniOp {Not = "NOT", Neg = "NEG"}
-export type Literal = "None" | true | false | number
+export type Literal = "None" | true | false | number | string
 
 export const INT = {tag: "int"} 
 export const BOOL = {tag: "bool"} 
@@ -8,7 +8,7 @@ export const NONE = {tag: "none"}
 
 export const keywords = new Set<string>([
     "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
-    "global", "nonlocal", "string", "list", "import", "try", "except", "False", "True", "and", 
+    "global", "nonlocal", "str", "list", "import", "try", "except", "False", "True", "and", 
     "as", "assert", "async", "await", "break", "continue", "del", "finally", "from", "in",
      "is", "lambda", "not", "or", "pass", "raise", "with", "yield"
 ]);
@@ -21,12 +21,14 @@ export type Type =
     | {tag: "callable", params: Type[], ret: Type}
     | {tag: "list", type: Type}
     | {tag: "tuple", members: Type[]}
+    | {tag: "string"}
 
 export function typeStr(t: Type): string {
     switch (t.tag) {
         case "int":
         case "bool":
         case "none":
+        case "string":
             return t.tag;
         case "class":
             return t.name;
@@ -48,7 +50,7 @@ export function buildClassType(name: string): {tag: "class", name: string} {
 export function isTypeEqual(lhs: Type, rhs: Type): boolean {
     if (rhs === null) return lhs === null;
     else if (lhs.tag !== rhs.tag) return false;
-    else if (lhs.tag === "int" || lhs.tag === "bool" || lhs.tag === "none") return true;
+    else if (lhs.tag === "int" || lhs.tag === "bool" || lhs.tag === "none" || lhs.tag === "string") return true;
     else if (lhs.tag === "class" && rhs.tag === "class") return lhs.name === rhs.name;
     else if (lhs.tag === "callable" && rhs.tag === "callable") {
         if (lhs.params.length != rhs.params.length) return false;
@@ -70,13 +72,15 @@ export function isAssignable(lhs: Type, rhs: Type): boolean {
 }
 
 export function isSubType(lhs: Type, rhs: Type) {
-    if (isClass(lhs)) {
-        return isTypeEqual(rhs, { tag: "none" });
-    } else if (lhs.tag === "list") {
+    if (lhs.tag === "list") {
         if (rhs.tag === "list")
             return isEmptyList(rhs) || isAssignable(lhs.type, rhs.type);
         else
             return isTypeEqual(rhs, { tag: "none" });
+    } else if (rhs.tag === "list") {
+        return isAssignable(lhs, rhs.type);
+    } else if (isClass(lhs)) {
+        return isTypeEqual(rhs, { tag: "none" });
     }
     return false;
 }
@@ -93,6 +97,10 @@ export function isEmptyList(a: Type) {
     return a.tag === "list" && a.type === null
 }
 
+export function isIterable(a: Type) {
+    return a.tag === "string" || a.tag === "list"
+}
+
 export type TypeDef = {name: string, type: Type}
 export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}
 
@@ -107,7 +115,7 @@ export type ReturnStmt<A> = { a?: A, tag: "return", value: Expr<A>}
 export type ExprStmt<A> = { a?: A, tag: "expr", expr: Expr<A> }
 export type ClassStmt<A> = { a?: A, tag: "class", name: string, super: string, methods: FuncStmt<A>[], fields: VarStmt<A>[]}
 export type ScopeStmt<A> = { a?: A, tag:"scope", name:string, global: boolean }
-export type ForStmt<A> = { a?: A, tag: "for", cnt: Expr<A>, array: Expr<A>, body: Stmt<A>[] }
+export type ForStmt<A> = { a?: A, tag: "for", loopVar: NameExpr<A>, iter: Expr<A>, body: Stmt<A>[] }
 
 export type LiteralExpr<A> = { a?: A, tag: "literal", value: Literal } 
 export type NameExpr<A> = { a?: A, tag: "name", name: string}

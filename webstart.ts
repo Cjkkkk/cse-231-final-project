@@ -22,10 +22,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 display("None");
                 return arg;
             },
+            print_char: (arg: any, lf: any) => {
+                const output = document.getElementById("output");
+                output.textContent += String.fromCharCode(arg);
+                if (lf) output.textContent += "\n";
+                // return arg;
+            }
         },
         check: {
             check_init: (arg: any) => {
-                if (arg === 0) {
+                if (arg <= 0) {
                     throw new Error("RUNTIME ERROR: object not intialized");
                 }
                 return arg;

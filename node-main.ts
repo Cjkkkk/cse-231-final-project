@@ -37,11 +37,17 @@ const importObject = {
             importObject.output += "None";
             importObject.output += "\n";
             return arg;
+        },
+        print_char: (arg: any, lf: any) => {
+            console.log(String.fromCharCode(arg));
+            importObject.output += String.fromCharCode(arg);
+            if (lf === 1) importObject.output += "\n";
+            return arg;
         }
     },
     check: {
         check_init: (arg: any) => {
-            if (arg === 0) {
+            if (arg <= 0) {
                 throw new Error("RUNTIME ERROR: object not intialized");
             }
             return arg;

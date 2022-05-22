@@ -41,6 +41,7 @@ export function traverseType(c : TreeCursor, s : string): Type {
             if (name === "int") type = {tag: "int"};
             else if (name === "bool") type = {tag: "bool"};
             else if (name === "none") type = {tag: "none"};
+            else if (name === "str") type = {tag: "string"};
             else {
                 type = {tag: "class", name};
             }
@@ -193,6 +194,8 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<any> {
             return { tag: "literal", value: "None" };
         case "Number":
             return { tag: "literal", value: Number(s.substring(c.from, c.to)) }
+        case "String":
+            return { tag: "literal", value: s.substring(c.from, c.to) };
         case "self":
         case "PropertyName":
         case "VariableName":
@@ -489,7 +492,6 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
                 while: whileCondBody
             }
         }
-        case "⚠":
         case "PassStatement": {
             assert(c.node.type.name === originName);
             return { tag: "pass"}
@@ -531,7 +533,13 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             t.firstChild(); // for
             assert(t.node.type.name === "for");
             t.nextSibling();
-            const cnt = traverseExpr(t, s);
+            // const cnt = traverseExpr(t, s);
+            if(t.name !== "VariableName")
+                throw new Error("Could not parse stmt at " + t.node.from + " " + t.node.to + ": " + s.substring(t.from, t.to));
+            const cnt: NameExpr<any> = {
+                tag: "name",
+                name: s.substring(t.from, t.to)
+            };
             t.nextSibling(); // in
             assert(t.node.type.name === "in");
             t.nextSibling(); // array
@@ -540,7 +548,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<any> {
             const body = traverseBody(t, s);
             t.parent()
             assert(t.node.type.name === originName);
-            return { tag: "for", cnt, array, body };
+            return { tag: "for", loopVar: cnt, iter: array, body };
         }
         default:
             throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));

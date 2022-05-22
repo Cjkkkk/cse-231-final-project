@@ -14,7 +14,7 @@ export function typeCheck(source: string) : Type {
         return "none"
     }
     const lastType = (lastStmt as ExprStmt<any>).expr.a;
-    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") 
+    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none" || lastType.tag === "string") 
         return lastType.tag;
     else if (lastType.tag === "class") 
         return CLASS(lastType.name);
@@ -36,7 +36,7 @@ export async function run(source: string) {
             ...importObject,
             check: {
                 check_init: (arg: any) => {
-                    if (arg === 0) {
+                    if (arg <= 0) {
                         throw new Error("RUNTIME ERROR: object not intialized");
                     }
                     return arg;
@@ -64,6 +64,7 @@ type Type =
   | "int"
   | "bool"
   | "none"
+  | "string"
   | { tag: "object", class: string }
   | { tag: "list", type: Type }
   | { tag: "string" }
@@ -71,8 +72,9 @@ type Type =
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";
 export const NONE : Type = "none";
+export const STRING: Type = "string";
 export function CLASS(name : string) : Type { 
-    return { tag: "object", class: name }
+  return { tag: "object", class: name }
 };
 
 export function LIST(typ: any ): Type {

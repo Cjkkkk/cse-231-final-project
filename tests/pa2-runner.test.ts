@@ -148,8 +148,7 @@ x:int = 3
 if x > 2:
     print(x)
 else:
-    print(-x)
-        `);
+    print(-x)`);
         expect(importObject.output).to.equal("3\n");
     });
 
@@ -163,8 +162,7 @@ elif x < 10:
 elif x > 30:
     print(2)
 else:
-    print(3)
-        `);
+    print(3)`);
         expect(importObject.output).to.equal("3\n");
     });
 
@@ -313,7 +311,7 @@ def f(x:int)->int:
             `);
             assert(false);
         } catch (error) {
-            expect(error.name).to.equal("TypeError");
+            expect(error.name).to.equal("Error");
         }
         try {
             await runTest(`
@@ -461,8 +459,7 @@ class B(A):
 
 def f() -> A:
     b: B = None
-    return b
-        `);
+    return b`);
     });
 
 
@@ -501,8 +498,7 @@ class C(B):
 
 def f() -> A:
     c: C = None
-    return c
-        `);
+    return c`);
     });
 
     it('Pass different class as function argument', async () => {
@@ -537,8 +533,7 @@ class B(object):
 
 def f() -> A:
     b: B = None
-    return b
-            `);
+    return b`);
             assert(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");
@@ -553,8 +548,7 @@ class A(object):
     a: int = 1
 
 class B(A):
-    a: int = 2
-            `);
+    a: int = 2`);
             assert(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");

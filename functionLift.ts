@@ -1,4 +1,4 @@
-import { Stmt, Expr, Type, FuncStmt, VarStmt, ClassStmt, typeStr, Literal, buildClassType, LValue, isClass } from './ast';
+import { Stmt, Expr, Type, FuncStmt, VarStmt, ClassStmt, typeStr, Literal, buildClassType, LValue, isClass, NameExpr } from './ast';
 import { SearchScope, Scope, Env } from "./tc";
 
 type Func = {name: string};
@@ -95,8 +95,8 @@ function getStmtsVarName(stmts: Stmt<any>[], names: Map<string, boolean>) {
             } case "var": {
                 break;
             } case "for": {
-                getExprVarName(stmt.cnt, names);
-                getExprVarName(stmt.array, names);
+                getExprVarName(stmt.loopVar, names);
+                getExprVarName(stmt.iter, names);
                 getStmtsVarName(stmt.body, names);
             } case "func": {
                 break;
@@ -321,6 +321,12 @@ function rewriteStmts(stmts: Stmt<any>[], currentFuncName: string, funcEnv: Env<
                 break;
             } case "scope": {
                 // DSC TODO
+                break;
+            } case "for": {
+                // TODO: use as keyword for quick fix
+                s.loopVar = rewriteExpr(s.loopVar, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap) as NameExpr<Type>;
+                s.iter = rewriteExpr(s.iter, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap);
+                s.body = rewriteStmts(s.body, currentFuncName, funcEnv, varEnv, closureMap, freeVarMap, funs, cls);
                 break;
             } default: {
                 throw new Error(`Unsupported stmt type:`);

@@ -1,218 +1,198 @@
 import { assertPrint, assertFail, assertTCFail, assertTC } from "./asserts.test";
-import { NUM, NONE, CLASS, LIST } from "./helpers.test"
+import { NUM, NONE, CLASS, LIST, STRING } from "./helpers.test"
 
 describe("PA4 tests for for-loops", () => {
     // 1
-    assertPrint("for-loop", `
-x: int = 0
-i: int = 0
-for i in [1,2,3,4,5,6,7,8,9,10]:
-    x = x + 1
-print(x)`, [`10`]);
+    assertPrint("for-loop-over-list", `
+    x: int = 0
+    i: int = 0
+    for i in [1,2,3,4,5,6,7,8,9,10]:
+        x = x + 1
+    print(x)`, [`10`]);
+    assertPrint("for-loop-over-string-1", `
+    s: str = "ghkjl"
+    i: str = ""
+    j: str = ""
+    for i in s:
+        j = i + j
+    print(j)`, [`ljkhg`]);
+    assertPrint("for-loop-over-string-2", `
+    s: str = "ghk"
+    i: str = ""
+    for i in s:
+    print(i)`, [`g`, `h`, `k`]);
     assertTCFail("wrong-type-for-counter", `
-x:int = 0
-i: int = 0
-for i in [True, True]:
-    // x = x + 1`);
-    // assertTC("empty-list", `
-    // a: [int] = None
-    // a = []
-    // a`, LIST(NUM));
-    // // 2.1
-    // assertTC("list-ele-type", `
-    // a: [int] = None
-    // a = [3,4,5]
-    // a[2]`, NUM);
-    // // 2.2
-    // assertTCFail("list-bad-ele-type", `
-    // a: [bool] = None
-    // a = [3,4,5]`);
-    // // 2.3
-    // assertTCFail("list-diff-ele-type", `
-    // a: [bool] = None
-    // a = [True, 4, None]`);
-    // // 3.1
-    // assertPrint("list-idx-expr", `
-    // a: [int] = None
-    // a = [3,4,5]
-    // print(a[2])`, [`5`]);
-    // // 3.2
-    // assertFail("idx-out-of-bound", `
-    // a: [int] = None
-    // a = [3,4,5]
-    // print(a[10])`);
-    // // 3.3
-    // assertFail("idx-out-of-bound", `
-    // a: [int] = None
-    // a = [3,4,5]
-    // print(a[-1])`);
-    // // 3.4
-    // assertTCFail("idx-not-int", `
-    // a: [int] = None
-    // t: bool = True
-    // a = [3,4,5]
-    // print(a[t])`);
-    // // 3.5
-    // assertTCFail("wrong-type-idx", `
-    // t: bool = True
-    // print(t[4])`);
-    // // 4.1
-    // assertPrint("list-len", `
-    // a: [int] = None
-    // a = [3,4,5]
-    // print(len(a))`, [`3`]);
-    // // 4.2
-    // assertPrint("list-len-zero", `
-    // a: [int] = None
-    // a = []
-    // print(len(a))`, [`0`]);
-    // 4.3
-    // assertFail("list-len-none", `
-    // a: [int] = None
-    // print(len(a))`);
-    // // 4.4
-    // assertTCFail("len-bad-arg", `
-    // t: bool = True
-    // a: int = 0
-    // a = len(t)`);
-    // // 5
-    // assertPrint("list-arg", `
-    // def contains(items:[int], x:int) -> bool:
-    //     i:int = 0
-    //     while i < len(items):
-    //         if items[i] == x:
-    //             return True
-    //         i = i + 1
-    //     return False
+    x:int = 0
+    i: int = 0
+    for i in [True, True]:
+    x = x + 1`);
+    assertTCFail("invalid-type-for-counter", `
+    x:[int]=None
+    y:str="asd"
+    x=[1,2,3,4,5]
+    for y in x:
+    print(y)`);
+    assertPrint("nested-for-loop", `
+    x: int = 0
+    i: int = 0
+    j: int = 0
+    for i in [1,2,3,4,5,6,7,8,9,10]:
+        for j in [1,2,3,4,5,6,7,8,9,10]:
+            x = x + 1
+    print(x)`, [`100`]);
+    assertTCFail("non-iterable-variable", `
+    x:int=2
+    y:int=1
+    for y in x:
+    print (y)`);
+    assertPrint("for-loop-over-list-in-class", `
+    class A(object):
+        x:[int]=None
+        def returnList(self:A)->[int]:
+            return [1,2,3,4]
 
-    // if contains([4, 8, 15, 16, 23], 15):
-    //     print(True)
-    // else:
-    //     print(False))`, [`True`]);
-    // 6
-    // assertTC("list-ret-type", `
-    // def gen() -> [int]:
-    //     return [1,2,3]
-    // a: [int] = None
-    // a = gen()
-    // a`, LIST(NUM));
-    // 7
-    // assertTC("nested-list", `
-    // a: [[int]] = None
-    // a = [[1,2,3], [4,5,6]]
-    // a`, LIST(LIST(NUM)));
-    // // 8
-    // assertPrint("list-obj-ele", `
-    // class C(object):
-    //     x:int = 345
-    // a: [C] = None
-    // a = [C(), C(), C()]
-    // print(a[1].x)`, [`345`]);
-    // assertTCFail("mix-obj-type", `
-    // class C(object):
-    //     x:int = 345
-    // class D(object):
-    //     x:int = 567
-    // a: [C] = None
-    // a = [None, D(), C()]`);
-    // assertTCFail("mix-obj-type", `
-    // class C(object):
-    //     x:int = 345
-    // class D(object):
-    //     x:int = 567
-    // a: [C] = None
-    // a = [D(),None, C()]`);
-    // assertPrint("mix-inheritance-obj", `
-    // class C(object):
-    //     x:int = 345
-    // class D(C):
-    //     y:int = 567
-    // a: [C] = None
-    // a = [None, D(), C()]
-    // print(a[1].x)`, [`345`]);
-    // // 9
-    // assertFail("list-of-none", `
-    // class C(object):
-    //     x:int = 345
-    // def f():
-    //     return
-    // a: [C] = None
-    // a = [f(), f(), None]
-    // print(a[1].x)`);
-    // assertPrint("list-has-none", `
-    // class C(object):
-    //     x:int = 345
-    // def f():
-    //     return
-    // a: [C] = None
-    // a = [None, C(), f()]
-    // print(a[1].x)`, ['345']);
-    // // 10.1
-    // assertPrint("list-assign", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = [1,2,3]
-    // b = a
-    // print(b[1])`, [`2`]);
-    // // 10.2
-    // assertTCFail("list-assign-type", `
-    // a: [int] = None
-    // b: [bool] = None
-    // a = [1,2,3]
-    // b = a`);
-    // //10.3
-    // assertPrint("list-is-1", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = [1,2,3]
-    // a = b
-    // print(b is a)`, [`True`]);
-    // assertPrint("list-is-2", `
-    // a: [int] = None
-    // b: [int] = None
-    // print(b is a)`, [`True`]);
-    // assertPrint("list-is-3", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = [1,2,3]
-    // print(b is a)`, [`False`]);
-    // // 11
-    // assertPrint("list-concat", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = []
-    // b = [4569]
-    // a = a + b
-    // print(a[0])`, [`4569`]);
-    // assertPrint("list-concat-2", `
-    // a: [int] = None
-    // b: [int] = None
-    // c: [int] = None
-    // a = [3,4,5]
-    // b = [1,2,3]
-    // c = a + b
-    // print(c[4])`, [`2`]);
-    // assertPrint("list-concat-empty", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = []
-    // b = []
-    // a = a + b
-    // print(len(a))`, [`0`]);
-    // assertTCFail("list-concat-diff-type", `
-    // a: [int] = None
-    // b: [bool] = None
-    // a = []
-    // b = [True, False]
-    // a = a + b`);
-    // assertFail("list-concat-none-1", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = a + b`)
-    // assertFail("list-concat-none-2", `
-    // a: [int] = None
-    // b: [int] = None
-    // a = [0,1,2]
-    // a = a + b`)
+    a:A=None
+    b:int=1
+    a=A()
+    for b in a.returnList():
+        print(b)`, ["1", "2", "3", "4"]);
+    assertPrint("for-loop-over-list-as-param-in-class", `
+    class A(object):
+        x:[int]=None
+        def setList(self:A, y:[int]):
+            self.x=y
+        def returnList(self:A)->[int]:
+            return self.x
+            
+    a:A=None
+    c:int=1
+    a=A()
+    a.setList([1,2,3,4,5])
+    for c in a.returnList():
+        print(c)`, ["1", "2", "3", "4", "5"]);
+    assertPrint("for-loop-over-list-as-memvar-in-class", `
+    class A(object):
+        x:[int]=None
+        def setList(self:A, y:[int]):
+            self.x=y
+        def printList(self:A):
+            a:int=1
+            for a in self.x:
+                print(a)
+            
+    a:A=None
+    a=A()
+    a.setList([1,2,3,4,5])
+    a.printList()`, ["1", "2", "3", "4", "5"]);
+    assertPrint("for-loop-over-string-as-memvar-in-class", `
+    class A(object):
+        x:str="asdfarawe"
+        def getStr(self:A)->str:
+            return self.x
+
+    a:A=None
+    b:str=""
+    c:str=""
+    a=A()
+    for b in a.getStr():
+        c = c + b
+    print(c)`, ["asdfarawe"]);
+    assertPrint("for-loop-over-string-as-param-in-class", `
+    class A(object):
+        x:str="asdfarawe"
+        def setStr(self:A, y:str):
+            self.x=y
+        def getStr(self:A)->str:
+            return self.x
+
+    a:A=None
+    b:str=""
+    c:str="asdufojasdopifn"
+    a=A()
+    a.setStr(c)
+    c=""
+    for b in a.getStr():
+        c = c + b
+    print(c)`, ["asdufojasdopifn"]);
+    assertFail("for-loop-over-none-list", `
+    x:[int]=None
+    y:int=1
+    for y in x:
+        print (y)`);
+    assertFail("for-loop-over-list-contains-none", `
+    class A(object):
+        x:int=1
+    x:[A]=None
+    y:A=None
+    x=[A(), None, A()]
+    for y in x:
+        print(y.x)`);
+    assertPrint("for-loop-over-concat-int-list", `
+    a:[int]=None
+    b:[int]=None
+    c:int=1
+    a=[1,2,3]
+    b=[4,5]
+    for c in a+b:
+        print(c)`, ["1", "2", "3", "4", "5"]);
+    assertPrint("for-loop-over-inheritance-list", `
+    class A(object):
+        x:int=1
+
+    class B(A):
+        y:int=2
+    
+    a:[A]=None
+    b:A=None
+    a=[A(), B(), A()]
+    for b in a:
+        print(b.x)`, ["1", "1", "1"]);
+    assertPrint("for-loop-over-concat-string-as-class-memvar", `
+    class A(object):
+        x:str="AA"
+    
+    a:A=None
+    b:str="B"
+    c:[A]=None
+    c=[A(), A(), A()]
+    for a in c:
+        b = b + a.x
+    print(b)`, ["BAAAAAA"]);
+    assertTC("tc-for-loop-over-int-list", `
+    a:[int]=None
+    b:int=1
+    c:int=2
+    a=[1,2,3,4,5]
+    for b in a:
+        c=c+b
+    b`, NUM);
+    assertTC("tc-for-loop-over-string", `
+    a:str="asasfdgas"
+    b:str=""
+    for b in a:
+        b = b + a + "e"
+    b`, STRING);
+    assertPrint("for-loop-over-nested-list", `
+    a:[[int]]=None
+    b:[int]=None
+    c:int=1
+    a=[[1,2],[2,3]]
+    for b in a:
+        for c in b:
+            print(c)`, ["1", "2", "2", "3"]);
+    assertPrint("for-loop-over-nested-inheritance-list", `
+    class A(object):
+        x:int=1
+
+    class B(A):
+        y:int=2
+
+    a:[[A]]=None
+    b:[A]=None
+    c:A=None
+    a=[[A(), B()], [B(), A()]]
+    for b in a:
+        for c in b:
+            print(c.x)`, ["1", "1", "1", "1"]);
 });
 
