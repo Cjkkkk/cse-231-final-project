@@ -11,6 +11,8 @@ describe("PA4 tests for list", () => {
     a: [int] = None
     a = []
     a`, LIST(NUM));
+    assertTC("list-object-type", `
+    [1, True]`, LIST("object"));
     // 2.1
     assertTC("list-ele-type", `
     a: [int] = None

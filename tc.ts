@@ -1,4 +1,5 @@
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, isTypeEqual, typeStr, isClass, LValue, NameExpr, isIterable } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, LValue, NameExpr } from "./ast";
+import { isTypeEqual, typeStr, isClass, isIterable, isIndexable } from "./ast";
 import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type, scope: Scope}
@@ -351,12 +352,12 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                     if (!isTypeEqual(curType, generalType)) {
                         if (isSubClass(generalType, curType, envList)) {
                             generalType = curType;
-                        } else if (isSubClass(curType, generalType, envList)) {
-                            // do nothing
                         } else if (generalType.tag === "none" && isClass(curType)) {
                             generalType = curType;
-                        } else if (!(curType.tag === "none" && isClass(generalType))) {
-                            throw new TypeError("Types in the list not uniform")
+                        } else if (!(curType.tag === "none" && isClass(generalType)) && 
+                            !isSubClass(curType, generalType, envList)) {
+                            // throw new TypeError("Types in the list not uniform")
+                            generalType = { tag: "class", name: "object" } 
                         }
                     }
                 })
@@ -370,7 +371,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
         } 
         case "index": {
             const newObj = tcExpr(e.obj, envList);
-            if (newObj.a.tag !== "list" && newObj.a.tag !== "string") {
+            if (!isIndexable(newObj.a)) {
                 throw new TypeError(`Cannot index into type ${typeStr(newObj.a)}`)
             }
             const newIdx = tcExpr(e.idx, envList);
@@ -379,10 +380,9 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             }
             if (newObj.a.tag === "string") {
                 return { ...e, obj: newObj, idx: newIdx, a: newObj.a };
+            } else if (newObj.a.tag === "list") {
+                return { ...e, obj: newObj, idx: newIdx, a: newObj.a.type }
             }
-            // for the case: l = [] \ l[0]
-            // throw error for index out of bound in runtime
-            return { ...e, obj: newObj, idx: newIdx, a: newObj.a.type }
         }
     }
 }

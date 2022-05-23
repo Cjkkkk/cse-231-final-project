@@ -99,6 +99,10 @@ export function isIterable(a: Type) {
     return a.tag === "string" || a.tag === "list"
 }
 
+export function isIndexable(a: Type) {
+    return a.tag === "string" || a.tag === "list"
+}
+
 export type TypeDef = {name: string, type: Type}
 export type CondBody<A> = {cond: Expr<A>, body: Stmt<A>[]}
 
