@@ -34,7 +34,7 @@ beforeEach(function () {
 });
 
 
-describe('test correctness', () => {
+describe('PA2 test correctness', () => {
     const config = { importObject };
     it('returns the right number', async () => {
         var result = await runTest("987");
@@ -60,7 +60,7 @@ describe('test correctness', () => {
 });
 
 
-describe('test operations', () => {
+describe('PA2 test operations', () => {
     const config = { importObject };
 
     it('number operation', async () => {
@@ -134,7 +134,7 @@ describe('test operations', () => {
 
 });
 
-describe('test control flow', () => {
+describe('PA2 test control flow', () => {
     const config = { importObject };
 
     it('pass expression', async () => {
@@ -200,7 +200,7 @@ print(x)
 
 });
 
-describe('test functions', () => {
+describe('PA2 test functions', () => {
     const config = { importObject };
 
     it('function definition', async () => {
@@ -431,7 +431,7 @@ x = f(x)
 });
 
 
-describe('test class', () => {
+describe('PA2 test class', () => {
     const config = { importObject };
 
     it('Pass subclass as function argument', async () => {
@@ -559,7 +559,7 @@ class B(A):
 
 
 
-describe('test classes', () => {
+describe('PA2 test classes', () => {
     const config = { importObject };
     it('class definition', async () => {
         await runTest(`
