@@ -1,4 +1,4 @@
-import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, LValue, NameExpr } from "./ast";
+import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, LValue, NameExpr, buildClassType } from "./ast";
 import { isTypeEqual, typeStr, isClass, isIterable, isIndexable } from "./ast";
 import { TypeError } from "./error"
 
@@ -410,6 +410,12 @@ export function tcFuncStmt(s : FuncStmt<any>, envList: SymbolTableList, currentR
             if (!found || symbol.tag !== "var") {
                 throw new ReferenceError(`not a ${s.global? "global": "nonlocal"} variable: ${s.name}`);
             }
+
+            if (found && !s.global && symbol.scope === Scope.GLOBAL) {
+                // check if a nonlocal variable indeed refer to a nonlocal variable
+                throw new ReferenceError(`not a nonlocal variable: ${s.name}`);
+            }
+
             envList.defineNewSymbol(s.name, {tag: "var", type: symbol.type, scope: s.global ? Scope.GLOBAL : Scope.NONLOCAL});
         }
     })
@@ -459,13 +465,36 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
                     throw new TypeError(`Class ${className} is not defined`)
                 }
                 let classData = superClassSymbol.type;
-                if (!s.fields.some((f)=>classData.fields.has(f.var.name))) {
-                    className = classData.super;
-                } else {
-                    throw new TypeError(`re-define field in class ${s.name}`);
-                }
-            }
 
+                // check if field is redefined
+                s.fields.forEach((f)=> {
+                    if (classData.fields.has(f.var.name)) {
+                        throw new TypeError(`re-define field ${f.var.name} in class ${s.name}`);
+                    }
+                })
+
+                // check if redefined method has same signature as super class
+                s.methods.forEach((f) => {
+                    if (classData.methods.has(f.name)) {
+                        // check signature
+                        const superMethod = classData.methods.get(f.name);
+                        if (f.params.length != superMethod[0].length 
+                            || !f.params.slice(1).every((p, i) => isTypeEqual(p.type, superMethod[0][i+1]))
+                            || !isTypeEqual(f.ret, superMethod[1])) {
+                            throw new TypeError(`method signature mismatch with superclass for ${f.name}`);
+                        }
+                    }
+                })
+
+                className = classData.super;
+            }
+            
+            // check if first parameter, aka self, is the same type as class
+            s.methods.forEach((f) => {
+                if (f.params.length <= 0 || !isTypeEqual(f.params[0].type, buildClassType(s.name))) {
+                    throw new TypeError(`first parameter of method ${f.name} should be type of class`);
+                }
+            });
             let fields = s.fields.map((v)=>tcVarStmt(v, envList, currentReturn)); //TODO: pass class info
             let methods = s.methods.map((v)=>tcFuncStmt(v, envList, currentReturn));
             methods.forEach((m)=>{

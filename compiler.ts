@@ -205,6 +205,7 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
 
         case "array": {
             const eleStmt = expr.eles.slice().reverse().map((ele, i) => codeGenExpr(ele, locals, fcm, mcm)).flat();
+            // DSC TODO: now the length of the list is on heap
             eleStmt.push(`(global.get $heap)`,
                 `(i32.const ${expr.eles.length})`,
                 `(i32.store)`);
@@ -229,15 +230,28 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             return eleStmt;
         }
         case "index": {
-            const objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
-            const idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
-            // now the type is list or string
-            const indexStmts = [
-                ...objStmts, ...idxStmts, `(call $get_${expr.obj.a.tag}_index)`
+            var objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
+            var idxStmts = codeGenExpr(expr.idx, locals, fcm, mcm);
+            var indexStmts = [
+                ...objStmts,
+                // DSC TODO: below is an ugly way to use the address of obj more than once
+                `(local.set $scratch)`,
+                `(local.get $scratch)`,
+                // DSC TODO: check init , now memory error
+                `(call $check_init)`,
+                `(i32.add (i32.const 4))`,
+
+                `(local.get $scratch)`,
+                `(i32.load) ;; load the length of the list`,
+                ...idxStmts,
+                `(call $check_index)`,
+                `(i32.mul (i32.const 4))`,
+                `(i32.add)`,
+                `(i32.load)`
             ];
-            // if (expr.a.tag === "string") {
-            //     return [...objStmts, ...idxStmts, `(call $get_string_index)`]
-            // }
+            if (expr.a.tag === "string") {
+                return [...objStmts, ...idxStmts, `(call $get_string_index)`]
+            }
             return indexStmts;
         }
     }
@@ -689,6 +703,7 @@ export function builtinGen(): string[] {
         `(local.get $addr)`,
         `(i32.add (i32.const 4))`,
         `(local.get $addr)`,
+        // DSC TODO: check init , now memory error
         `(call $check_init)`,
         `(i32.load) ;; load the length of the list`,
         `(local.get $idx)`,
@@ -710,20 +725,7 @@ export function builtinGen(): string[] {
         `(global.set $heap)`,
         `)`
     ]
-    const get_list_index = [
-        `(func $get_list_index (param $addr i32) (param $idx i32) (result i32)`,
-        `(local.get $addr)`,
-        `(call $check_init)`,
-        `(i32.load) ;; load the length of the list`,
-        `(local.get $idx)`,
-        `(call $check_index)`,
-        `(i32.mul (i32.const 4))`,
-        `(i32.add (i32.const 4))`,
-        `(i32.add (local.get $addr))`,
-        `(i32.load)`,
-        `)`
-    ]
-    return [...copy_list_string, ...concat_list_string, ...print_string, ...get_string_index, ...get_list_index];
+    return [...copy_list_string, ...concat_list_string, ...print_string, ...get_string_index];
 }
 
 export function codeGenAllGlobalVar(vars: string[]) : string {
