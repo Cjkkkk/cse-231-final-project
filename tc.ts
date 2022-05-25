@@ -462,7 +462,7 @@ export function tcStmt(s : Stmt<any>, envList: SymbolTableList, currentReturn : 
                 if (!s.fields.some((f)=>classData.fields.has(f.var.name))) {
                     className = classData.super;
                 } else {
-                    throw new TypeError(`TYPE ERROR: Redefine field in class ${s.name}`);
+                    throw new TypeError(`re-define field in class ${s.name}`);
                 }
             }
 
