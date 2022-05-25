@@ -194,5 +194,19 @@ describe("PA4 tests for for-loops", () => {
     for b in a:
         for c in b:
             print(c.x)`, ["1", "1", "1", "1"]);
+
+    assertPrint("two-for-loops", `
+a:[[int]]=None
+b:[int]=None
+c:int=1
+i:int = 0
+a=[[1,2],[2,3]]
+for b in a:
+    for c in b:
+        i = i + c
+for b in a:
+    for c in b:
+        i = i + c
+print(i)`, ["16"]);
 });
 

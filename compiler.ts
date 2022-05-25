@@ -12,7 +12,10 @@ type FieldContext = Map<string, number>;
 type MethodContextMap = Map<string, MethodContext>;
 type FieldContexMap = Map<string, FieldContext>;
 var loop_label = 0;
-var for_label = 0;
+let for_label = 0;
+let max_for_label = 0;
+let self_cnt = 0
+let max_self_cnt = 0;
 
 function variableNames(stmts: Stmt<Type>[]) : string[] {
     const vars : Array<string> = [];
@@ -170,15 +173,18 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
         }
         case "method": {
             const objStmts = codeGenExpr(expr.obj, locals, fcm, mcm);
+            self_cnt += 1;
+            max_self_cnt = self_cnt > max_self_cnt ? self_cnt : max_self_cnt;
             const argsStmts = expr.args.map(e => codeGenExpr(e, locals, fcm, mcm)).flat();
+            self_cnt -= 1
             const className = (expr.obj.a as {tag: "class", name: string}).name;
             const mc = mcm.get(className);
             return [
                 ...objStmts, // self
-                `local.set $scratch`, // try to dup self
-                `local.get $scratch`,
+                `global.set $self${self_cnt}`, // try to dup self
+                `global.get $self${self_cnt}`,
                 ...argsStmts,
-                `local.get $scratch`, // self
+                `global.get $self${self_cnt}`, // self
                 `i32.load`, // get v_table pointer
                 `i32.const ${mc.order.indexOf(expr.name)}`, // offset
                 `i32.add`, // get index into the table
@@ -403,6 +409,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
             const arrExpr = codeGenExpr(stmt.iter, locals, fcm, mcm);
             const forLabel = for_label;
             for_label += 1;
+            max_for_label = for_label > max_for_label ? for_label: max_for_label;
+            const bodyStmts = stmt.body.map((s) => codeGenStmt(s, locals, fcm, mcm)).flat();
+            for_label -= 1
             const loopVarUpdate = (locals.has(stmt.loopVar.name)) ? `(local.set $${stmt.loopVar.name})` : `(global.set $${stmt.loopVar.name})`;
             const loadVal = [];
             if (stmt.iter.a.tag === "list") {
@@ -432,7 +441,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, fcm: FieldContexMap, 
                             `(i32.ge_s (global.get $ForLoopCnt${forLabel}) (global.get $ForLoopLen${forLabel}))`,
                             `(br_if 1)`,
                             ...loadVal,
-                            ...stmt.body.map((s) => codeGenStmt(s, locals, fcm, mcm)).flat(),
+                            ...bodyStmts,
                             `(global.set $ForLoopCnt${forLabel} (i32.add (global.get $ForLoopCnt${forLabel}) (i32.const 1)))`,
                             `(br 0)`,
                         `)`,
@@ -720,15 +729,21 @@ export function builtinGen(): string[] {
 export function codeGenAllGlobalVar(vars: string[]) : string {
     var varUser = addIndent(vars.map(v => `(global $${v} (mut i32) (i32.const 0))`), 1).join("\n");
     const forLoopLabels = []
-    for (let i = 0; i < for_label; i++) {
+    for (let i = 0; i < max_for_label; i++) {
         forLoopLabels.push(
             `(global $ForLoopIter${i} (mut i32) (i32.const 0))`,
             `(global $ForLoopCnt${i} (mut i32) (i32.const 0))`, 
             `(global $ForLoopLen${i} (mut i32) (i32.const 0))`
             );
     }
-    var varHelper = addIndent(forLoopLabels, 1).join("\n");
-    return varUser + varHelper;
+    const selfVarStmt = [];
+    for (let i = 0; i < max_self_cnt; i++) {
+        selfVarStmt.push(
+            `(global $self${i} (mut i32) (i32.const 0))`,
+        );
+    }
+    var varHelper = [...addIndent(forLoopLabels, 1), ...addIndent(selfVarStmt, 1)].join("\n");
+    return varUser + "\n" + varHelper;
 }
 
 export function compile(source : string) : string {

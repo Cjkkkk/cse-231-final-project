@@ -213,7 +213,33 @@ b: B = None
 m = M()
 a = A()
 b = B()
-print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3))) ) )`, [`24`]);
+print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3)))))`, [`24`]);
+
+
+    assertPrint("recursively call method", `
+class M(object):
+    def f(self: M, a: int) -> int:
+        return a
+
+class A(object):
+    a: int = 1
+    def f(self: A, p:int) -> int:
+        if (p > 0):
+            self.a = self.a + self.f(p-1)
+        return self.a
+    def add(self: A, p:int, q:int) -> int:
+        return self.a + p + q
+
+class B(A):
+    pass
+
+m: M = None
+a: A = None
+b: B = None
+m = M()
+a = A()
+b = B()
+print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3))) ) )`, [`934`]);
 
 
 });
