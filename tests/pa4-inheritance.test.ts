@@ -1,4 +1,4 @@
-import { assertPrint, assertFail, assertTCFail, assertTC } from "./asserts.test";
+import { assertPrint, assertFail, assertTCFail, assertTC, assertFailContain } from "./asserts.test";
 import { NUM, NONE, CLASS } from "./helpers.test"
 
 describe("PA4 tests for inheritance", () => {
@@ -114,6 +114,14 @@ describe("PA4 tests for inheritance", () => {
     b: B = None
     b = B()
     print(b.f())`,[`1`]);
+    assertTCFail("define a method different from superclass", `
+    class A(object):
+        def f(self: A) -> int:
+            return 1
+    
+    class B(A):
+        def f(self: B) -> bool:
+            return True`);
     // 10
     assertPrint("change a field defined in superclass", `
     class A(object):
@@ -128,4 +136,45 @@ describe("PA4 tests for inheritance", () => {
     b.f()
     print(b.a)
     `, [`2`]);
+    // 11
+    assertFailContain("change inherited function signature", `
+class A(object):
+    def f(self: A, a: A) -> A:
+        return a
+
+class B(A):
+    def f(self: B, b: B) -> B:
+        return b
+    `, `signature`);
+
+    // 12
+    assertTCFail("bad self parameter", `
+class M(object):
+    def f(self: A, a: int) -> int:
+        return a`);    
+    
+    // 13
+    assertPrint("complex method parameter", `
+class M(object):
+    def f(self: M, a: int) -> int:
+        return a
+
+class A(object):
+    a: int = 1
+    def f(self: A, p:int) -> int:
+        return self.a + p
+    def add(self: A, p:int, q:int) -> int:
+        return self.a + p + q
+
+class B(A):
+    def f(self: B, q:int) -> int:
+        return self.a + q + q
+
+m: M = None
+a: A = None
+b: B = None
+m = M()
+a = A()
+b = B()
+print(b.add(a.f(m.f(1)), m.f(2)))`, [`5`]);
 });
