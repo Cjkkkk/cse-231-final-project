@@ -70,11 +70,13 @@ export class Env<T> {
 
 
     lookUpSymbol(id: string, scope: SearchScope): [boolean, T | undefined] {
-        // scope: 1 - search all scopes except the last one and the first one (nonlocal)
+        // scope: 3 - search all scopes
         //        0 - search globally (only the global vars)
+        //        1 - NONLOCAL
+        //        2 - LOCAL_AND_GLOBAL
         //       -1 - search locally (only the last scope, current scope)
         // return: True - found, Type: type for id
-        //         False - not found, Type: "none"
+        //         False - not found, Type: undefined
         let start: number = this.decls.length - 1;
         let end: number = 0;
         if (scope === SearchScope.GLOBAL)
