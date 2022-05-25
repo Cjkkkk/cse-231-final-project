@@ -191,6 +191,29 @@ m = M()
 a = A()
 b = B()
 print(b.add(a.f(m.f(1)), m.f(2)))`, [`5`]);
+    assertPrint("nested calling the same method", `
+class M(object):
+    def f(self: M, a: int) -> int:
+        return a
+
+class A(object):
+    a: int = 1
+    def f(self: A, p:int) -> int:
+        self.a = self.a + p
+        return self.a
+    def add(self: A, p:int, q:int) -> int:
+        return self.a + p + q
+
+class B(A):
+    pass
+
+m: M = None
+a: A = None
+b: B = None
+m = M()
+a = A()
+b = B()
+print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3))) ) )`, [`24`]);
 
 
 });
