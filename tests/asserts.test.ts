@@ -11,9 +11,9 @@ beforeEach(function () {
 });
 
 // suppress console logging so output of mocha is clear
-before(function () {
-  console.log = function () {};
-});
+// before(function () {
+//   console.log = function () {};
+// });
 
 // Assert the output of printing matches the expected output
 export function assertPrint(name: string, source: string, expected: Array<string>) {
@@ -56,6 +56,7 @@ export function assertFailContain(name: string, source: string, errMessage: stri
   it(name, async () => {
     try {
       typeCheck(source);
+      fail("Expected an exception but no exception thrown");
     } catch (err) {
       expect(err.message).to.contain(errMessage);
     }

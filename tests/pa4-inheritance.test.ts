@@ -79,12 +79,12 @@ describe("PA4 tests for inheritance", () => {
     b: B = None
     f(b)`);
     // 7
-    assertTCFail("Redefine same field in sub class", `
+    assertFailContain("Redefine same field in sub class", `
     class A(object):
         a: int = 1
     
     class B(A):
-        a: int = 2`);
+        a: int = 2`, `re-define`);
     // 8
     assertPrint("calling a method", `
     class A(object):
@@ -113,15 +113,22 @@ describe("PA4 tests for inheritance", () => {
 
     b: B = None
     b = B()
-    print(b.f())`,[`1`]);
-    assertTCFail("define a method different from superclass", `
+    print(b.f())`, [`1`]);
+
+    assertPrint("calling a method defined in super-super-class", `
     class A(object):
         def f(self: A) -> int:
             return 1
     
     class B(A):
-        def f(self: B) -> bool:
-            return True`);
+        pass
+
+    class C(B):
+        pass
+
+    c: C = None
+    c = C()
+    print(c.f())`, [`1`]);
     // 10
     assertPrint("change a field defined in superclass", `
     class A(object):
@@ -146,13 +153,20 @@ class B(A):
     def f(self: B, b: B) -> B:
         return b
     `, `signature`);
-
+    assertFailContain("define a method different from superclass", `
+    class A(object):
+        def f(self: A) -> int:
+            return 1
+    
+    class B(A):
+        def f(self: B) -> bool:
+            return True`, `signature`);
     // 12
     assertTCFail("bad self parameter", `
 class M(object):
     def f(self: A, a: int) -> int:
-        return a`);    
-    
+        return a`);
+
     // 13
     assertPrint("complex method parameter", `
 class M(object):
@@ -177,4 +191,6 @@ m = M()
 a = A()
 b = B()
 print(b.add(a.f(m.f(1)), m.f(2)))`, [`5`]);
+
+
 });
