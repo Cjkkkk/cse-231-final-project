@@ -213,7 +213,7 @@ b: B = None
 m = M()
 a = A()
 b = B()
-print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3))) ) )`, [`24`]);
+print(b.add(a.f(a.f(a.f(4))), m.f(m.f(m.f(3)))))`, [`24`]);
 
 
 });
