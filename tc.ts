@@ -91,10 +91,10 @@ export class Env<T> {
             end = 1;
         } 
         else if (scope === SearchScope.LOCAL_AND_GLOBAL) {
-            if (this.decls[0].has(id))
-                return [true, this.decls[0].get(id)];
             if (this.decls[start].has(id))
                 return [true, this.decls[start].get(id)];
+            if (this.decls[0].has(id))
+                return [true, this.decls[0].get(id)];
             return [false, undefined];
         }
         for (let i = start; i >= end; i--) {
