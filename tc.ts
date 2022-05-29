@@ -1,5 +1,6 @@
+import { env } from "process";
 import { BinOp, Expr, Stmt, Type, UniOp, FuncStmt, VarStmt, isAssignable, LValue, NameExpr, buildClassType } from "./ast";
-import { isTypeEqual, typeStr, isClass, isIterable, isIndexable } from "./ast";
+import { isTypeEqual, typeStr, isClass, isIterable, isIndexable, isObject } from "./ast";
 import { TypeError } from "./error"
 
 type VarSymbol = {tag: "var", type: Type, scope: Scope}
@@ -35,6 +36,18 @@ function isSubClass(sub: Type, sup: Type, envList : SymbolTableList): boolean {
         }
     }
 }
+
+export function unionListType(typ1: Type, typ2: Type, envList: SymbolTableList): Type {
+    if (isTypeEqual(typ1, typ2)) {
+        return typ1;
+    } else if (isAssignable(typ1, typ2) || isSubClass(typ2, typ1, envList)) {
+        return typ1;
+    } else if (isAssignable(typ2, typ1) || isSubClass(typ1, typ2, envList)) {
+        return typ2;
+    }
+    return { tag: "class", name: "object" };
+}
+
 
 export class Env<T> {
     decls: Map<string, T | undefined>[];
@@ -140,16 +153,11 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             const rhs = tcExpr(e.rhs, envList);
             switch(e.op) {
                 case BinOp.Plus: 
-                    if (lhs.a.tag === "list" || rhs.a.tag === "list") {
-                        if (!isTypeEqual(lhs.a, rhs.a)) {
-                            throw new TypeError(`Try to concat two lists on type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`);
-                        }
-                        return { ...e, a: lhs.a, lhs, rhs };
+                    if (lhs.a.tag === "list" && rhs.a.tag === "list") {
+                        const newType = unionListType(lhs.a.type, rhs.a.type, envList);
+                        return { ...e, a: { tag: "list", type: newType }, lhs, rhs };
                     }
-                    if (lhs.a.tag === "string" || rhs.a.tag === "string") {
-                        if (!isTypeEqual(lhs.a, rhs.a)) {
-                            throw new TypeError(`TYPE ERROR: Cannot apply operator \`+\` on types \`${typeStr(lhs.a)}\` and \`${typeStr(rhs.a)}\``);
-                        }
+                    if (lhs.a.tag === "string" && rhs.a.tag === "string") {
                         return { ...e, a: lhs.a, lhs, rhs };
                     }
                 case BinOp.Minus:
@@ -175,7 +183,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                     }
                     return { ...e, a: {tag: "bool"}, lhs, rhs };
                 case BinOp.Is:
-                    if (lhs.a.tag === "int" || rhs.a.tag === "int" || lhs.a.tag === "bool" || rhs.a.tag === "bool" ) {
+                    if ((!isObject(lhs.a) && lhs.a.tag !== "none") || (!isObject(rhs.a) && rhs.a.tag !== "none")) {
                         throw new TypeError(`TYPE ERROR: Expected type NONE or CLASS but got type ${typeStr(lhs.a)} and type ${typeStr(rhs.a)}`)
                     }
                     return { ...e, a: {tag: "bool"}, lhs, rhs };
@@ -351,17 +359,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
                 let generalType = newEles[0].a;
                 newEles.forEach(ele => {
                     let curType = ele.a;
-                    if (!isTypeEqual(curType, generalType)) {
-                        if (isSubClass(generalType, curType, envList)) {
-                            generalType = curType;
-                        } else if (generalType.tag === "none" && isClass(curType)) {
-                            generalType = curType;
-                        } else if (!(curType.tag === "none" && isClass(generalType)) && 
-                            !isSubClass(curType, generalType, envList)) {
-                            // throw new TypeError("Types in the list not uniform")
-                            generalType = { tag: "class", name: "object" } 
-                        }
-                    }
+                    generalType = unionListType(generalType, curType, envList);
                 })
                 // if (!newEles.every(ele => isAssignable(ele.a, newEles[0].a) || isAssignable(newEles[0].a, ele.a))) {
                 //     throw new TypeError("Types in the list not uniform")

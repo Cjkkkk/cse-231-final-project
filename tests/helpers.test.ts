@@ -84,7 +84,7 @@ export function LIST(typ: any ): Type {
     if (typ.hasOwnProperty("tag")) {
         if (typ.tag === "class") 
             return { tag: "list", type: typ.name };
-        else if (typ.tag === "int" || typ.tag === "bool" || typ.tag === "none") {
+        else if (typ.tag === "int" || typ.tag === "bool" || typ.tag === "none" || typ.tag === "string") {
             return { tag: "list", type: typ.tag };
         }
         else if (typ.tag === "list") {
