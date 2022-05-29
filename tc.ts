@@ -154,6 +154,7 @@ export function tcExpr(e: Expr<any>, envList: SymbolTableList) : Expr<Type> {
             switch(e.op) {
                 case BinOp.Plus: 
                     if (lhs.a.tag === "list" && rhs.a.tag === "list") {
+                        // chocopy can concat any two inited lists with return type list[object]
                         const newType = unionListType(lhs.a.type, rhs.a.type, envList);
                         return { ...e, a: { tag: "list", type: newType }, lhs, rhs };
                     }
