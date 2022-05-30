@@ -141,6 +141,12 @@ export function codeGenExpr(expr : Expr<Type>, locals: Env, fcm: FieldContexMap,
             if (expr.lhs.a.tag === expr.rhs.a.tag && (expr.lhs.a.tag === "list" || expr.lhs.a.tag === "string") && expr.op === BinOp.Plus) {
                 opstmts = [`call $concat_list_string`];
             }
+            if (expr.lhs.a.tag === "string" && expr.op === BinOp.Equal) {
+                opstmts = [`call $compare_string`];
+            }
+            if (expr.lhs.a.tag === "string" && expr.op === BinOp.Unequal) {
+                opstmts = ['i32.const 1', 'call $compare_string', 'i32.sub'];
+            }
             return [...lhsExprs, ...rhsExprs, ...opstmts];
         }
         case "call":{
@@ -722,7 +728,54 @@ export function builtinGen(): string[] {
         `(i32.load)`,
         `)`
     ]
-    return [...copy_list_string, ...concat_list_string, ...print_string, ...get_string_index, ...get_list_index];
+    const compare_string = [
+        `(func $compare_string (param i32) (param i32) (result i32)`,
+        `(local $i i32)`,
+        `(local $len i32)`,
+        `(local.get 0)`,
+        `(call $check_init)`,
+        `(i32.load)`, //load the length of the str1
+        `(local.set $len)`,
+        `(local.get $len)`,
+        `(local.get 1)`,
+        `(call $check_init)`,
+        `(i32.load)`, //load the length of the str2`
+        `(i32.ne)`,
+        ...`(if
+            (then
+                (i32.const 0)
+                return
+            )
+        )`.split("\n"),
+        `(local.set $i (i32.const 0))`,
+        ...`(block
+            (loop 
+                (i32.ge_s (local.get $i) (local.get $len))
+                (br_if 1)
+                (local.get 0)
+                (i32.add (local.get $i) (i32.const 1))
+                (i32.add (i32.mul (i32.const 4)))
+                (i32.load)
+                (local.get 1)
+                (i32.add (local.get $i) (i32.const 1))
+                (i32.add (i32.mul (i32.const 4)))
+                (i32.load)
+                (i32.ne)
+                (if
+                    (then
+                        (i32.const 0)
+                        return
+                    )
+                )
+                (local.set $i (i32.add (local.get $i) (i32.const 1)))
+                (br 0)
+            )
+        )`.split("\n"),
+        `(i32.const 1)`,
+        `return`,
+        `)`
+    ]
+    return [...copy_list_string, ...concat_list_string, ...print_string, ...get_string_index, ...get_list_index, ...compare_string];
 }
 
 export function codeGenAllGlobalVar(vars: string[]) : string {
